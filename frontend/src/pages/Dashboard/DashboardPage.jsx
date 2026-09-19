@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { getDashboardStats } from '../../api/dashboard.api'; // Adjust relative path to dashboard.api.js
 
 export default function DashboardPage() {
   const [stats, setStats] = useState(null);
@@ -9,26 +10,18 @@ export default function DashboardPage() {
     setLoading(true);
     setError(null);
     try {
-      // Adjust baseUrl if you don't have Vite/CRA proxy set up (e.g. 'http://localhost:5000/api/dashboard/stats')
-      const response = await fetch('/api/dashboard/stats', {
-        headers: { 'Content-Type': 'application/json' },
-      });
-      console.log("Status:", response.status);
-        console.log("Content-Type:", response.headers.get("content-type"));
+      const responseData = await getDashboardStats();
 
-        const text = await response.text();
-        console.log("Response:", text);
-
-      const json = await response.json();
-
-      if (!response.ok || !json.success) {
-        throw new Error(json.message || `Server returned ${response.status}`);
+      if (!responseData.success) {
+        throw new Error(responseData.message || 'Failed to retrieve stats');
       }
 
-      setStats(json.data);
+      setStats(responseData.data);
     } catch (err) {
       console.error('Failed to fetch dashboard stats:', err);
-      setError(err.message);
+      const errorMessage =
+        err.response?.data?.message || err.message || 'Network error occurred';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -68,10 +61,10 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 p-8 space-y-8">
-      {/* Test Header */}
+      {/* Header */}
       <div className="flex items-center justify-between border-b border-slate-800 pb-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Sanket Dashboard (Test View)</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Sanket Dashboard</h1>
           <p className="text-sm text-slate-400">Live platform metrics from MongoDB</p>
         </div>
         <button
@@ -148,22 +141,22 @@ export default function DashboardPage() {
               </span>
             </div>
             <div className="flex justify-between">
-              <span>Status:</span>
+              <span>Account Status:</span>
               <span className="font-semibold text-emerald-400">Healthy</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Raw Payload Inspection (For Dev Verification) */}
-      <div className="p-4 bg-slate-900/60 border border-slate-800/80 rounded-xl space-y-2">
+      {/* Raw Payload Inspection */}
+      {/* <div className="p-4 bg-slate-900/60 border border-slate-800/80 rounded-xl space-y-2">
         <span className="text-xs font-mono uppercase text-slate-500 font-semibold">
           Raw Response Payload Inspection
         </span>
-        <pre className="text-xs font-mono text-slate-300 bg-slate-950 p-3 rounded-lg overflow-x-auto border border-slate-850">
+        <pre className="text-xs font-mono text-slate-300 bg-slate-950 p-3 rounded-lg overflow-x-auto border border-slate-800">
           {JSON.stringify(stats, null, 2)}
         </pre>
-      </div>
+      </div> */}
     </div>
   );
 }
