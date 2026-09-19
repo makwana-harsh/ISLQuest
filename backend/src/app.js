@@ -7,6 +7,7 @@ import errorHandlerMiddleware from './middlewares/errorHandler.middleware.js';
 
 
 import authRoutes from "./modules/auth/auth.routes.js";
+import dictionaryRoutes from "./modules/dictionary/dictionary.routes.js";
 
 const app = express();
 
@@ -22,6 +23,7 @@ app.use(express.urlencoded({ extended:true }));
 
 
 app.use("/api/auth", authRoutes);
+app.use("/api/dictionary", dictionaryRoutes);
 
 app.use(errorHandlerMiddleware);
 
