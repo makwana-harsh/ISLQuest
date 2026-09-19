@@ -13,10 +13,12 @@
     "@mediapipe/camera_utils": "^0.3.1675466862",
     "@mediapipe/holistic": "^0.5.1675471629",
     "@tensorflow/tfjs": "^4.22.0",
+    "axios": "^1.20.0",
     "clsx": "^2.1.1",
     "lucide-react": "^1.47.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "react-router-dom": "^7.18.4",
     "tailwind-merge": "^3.7.0"
   },
   "devDependencies": {

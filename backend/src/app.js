@@ -5,6 +5,9 @@ import cors from 'cors';
 
 import errorHandlerMiddleware from './middlewares/errorHandler.middleware.js';
 
+
+import authRoutes from "./modules/auth/auth.routes.js";
+
 const app = express();
 
 app.use(helmet());
@@ -16,12 +19,9 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(express.urlencoded({ extended:true }));
 
-// Test route
-app.get("/", (req, res) => {
-    res.json({
-        message: "ISLQuest API is running"
-    });
-});
+
+
+app.use("/api/auth", authRoutes);
 
 app.use(errorHandlerMiddleware);
 
