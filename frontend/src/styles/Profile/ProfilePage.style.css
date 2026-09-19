@@ -1,0 +1,70 @@
+.profile-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+
+  background: white;
+  overflow-y: auto;
+
+  padding: 30px;
+}
+
+.profile-content {
+  max-width: 700px;
+  margin: 60px auto;
+}
+
+.profile-picture {
+  width: 140px;
+  height: 140px;
+
+  border-radius: 50%;
+  object-fit: cover;
+
+  display: block;
+  margin-bottom: 24px;
+}
+
+.profile-content p {
+  margin: 12px 0;
+}
+
+.profile-scores {
+  margin-top: 30px;
+}
+
+.module-score {
+  border: 1px solid #ddd;
+  padding: 15px;
+  margin-bottom: 12px;
+}
+
+.profile-content form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.profile-content input {
+  padding: 10px;
+}
+
+.profile-content button {
+  width: fit-content;
+  padding: 10px 16px;
+  cursor: pointer;
+}
+
+.back-btn {
+  align-self: flex-start;
+  margin-bottom: 1rem;
+  background: transparent;
+  border: 1px solid #ccc;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.back-btn:hover {
+  background-color: #f0f0f0;
+}
