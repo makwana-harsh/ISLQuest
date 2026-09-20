@@ -1,6 +1,7 @@
 import React from 'react';
+import { VoiceButton } from './VoiceButton';
 
-export function PredictionDisplay({ predictionState }) {
+export function PredictionDisplay({ predictionState, autoSpeak = false }) {
   const { status, sign, confidence, progress, total } = predictionState;
 
   return (
@@ -14,15 +15,19 @@ export function PredictionDisplay({ predictionState }) {
         </span>
       </div>
 
-      <div className="flex items-baseline gap-3">
-        <h2 className="text-3xl font-extrabold text-white capitalize">
-          {sign ? sign.replace('_', ' ') : '—'}
-        </h2>
-        {confidence > 0 && (
-          <span className="text-sm font-semibold text-emerald-400">
-            {Math.round(confidence * 100)}% Match
-          </span>
-        )}
+      <div className="flex items-center justify-between">
+        <div className="flex items-baseline gap-3">
+          <h2 className="text-3xl font-extrabold text-white uppercase">
+            {sign ? sign.replace('_', ' ') : '—'}
+          </h2>
+          {confidence > 0 && (
+            <span className="text-sm font-semibold text-emerald-400">
+              {Math.round(confidence * 100)}% Match
+            </span>
+          )}
+        </div>
+        {/* Integrated Voice Button */}
+        <VoiceButton currentSign={sign} autoSpeak={autoSpeak} />
       </div>
 
       {status === 'buffering' && (
