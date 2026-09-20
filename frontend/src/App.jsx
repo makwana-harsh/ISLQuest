@@ -9,6 +9,7 @@ import DictionaryPage from "./pages/Dictionary/DictionaryPage";
 import LearnISLPage from "./pages/LearnISL/LearnISLPage"
 import ContributePage from "./pages/Contribute/ContributePage";
 import ProfilePage from "./pages/Profile/ProfilePage";
+import AwarenessPage from "./pages/Awareness/AwarenessPage";
 
 import ProtectedRoutes from "./components/ProtectedRoutes";
 import PublicOnlyRoute from "./components/PublicOnlyRoute";
@@ -46,7 +47,7 @@ function App() {
         <Route path="/translator" element={<Screen name="Translator" />} />
         <Route path="/dictionary" element={<DictionaryPage />} />
         <Route path="/learn-isl" element={<LearnISLPage />} />
-        <Route path="/awareness" element={<Screen name="Awareness" />} />
+        <Route path="/awareness" element={<AwarenessPage />} />
         <Route path="/contribute" element={<ContributePage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/moderate" element={<ModeratorScreen />} />
