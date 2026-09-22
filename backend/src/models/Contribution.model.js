@@ -1,16 +1,22 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
 const ContributionSchema = new mongoose.Schema(
   {
     userId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
+      ref: "User",
       required: true,
     },
 
     signName: {
       type: String,
       required: true,
+      trim: true,
+    },
+
+    description: {
+      type: String,
+      default: "",
       trim: true,
     },
 
@@ -26,6 +32,12 @@ const ContributionSchema = new mongoose.Schema(
       trim: true,
     },
 
+    // example: {
+    //   type: String,
+    //   default: "",
+    //   trim: true,
+    // },
+
     videoUrl: {
       type: String,
       required: true,
@@ -33,8 +45,8 @@ const ContributionSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ['pending', 'approved', 'rejected'],
-      default: 'pending',
+      enum: ["pending", "approved", "rejected"],
+      default: "pending",
       index: true,
     },
 
@@ -51,18 +63,18 @@ const ContributionSchema = new mongoose.Schema(
 
       suggestion: {
         type: String,
-        default: '',
+        default: "",
       },
     },
 
     moderatorFeedback: {
       type: String,
-      default: '',
+      default: "",
     },
 
     moderatedBy: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
+      ref: "User",
       default: null,
     },
 
@@ -74,4 +86,4 @@ const ContributionSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-export default mongoose.model('Contribution', ContributionSchema);
+export default mongoose.model("Contribution", ContributionSchema);

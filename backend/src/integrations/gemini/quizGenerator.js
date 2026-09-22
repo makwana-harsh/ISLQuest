@@ -85,7 +85,7 @@ Rules:
 
   // Models supported by @google/genai SDK v1beta
   const modelsToTry = [
-    "gemini-1.5-flash",
+    "gemini-3.6-flash",
   ];
 
   let lastError = null;
