@@ -9,6 +9,7 @@ import profileRoutes from "./modules/profile/profile.routes.js"
 import authRoutes from "./modules/auth/auth.routes.js";
 import dictionaryRoutes from "./modules/dictionary/dictionary.routes.js";
 import dashboardRoutes from "./modules/dashboard/dashboard.routes.js";
+import learnIslRoutes from "./modules/learnIsl/learnIsl.routes.js";
 
 const app = express();
 
@@ -26,6 +27,7 @@ app.use("/api/profile", profileRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/dictionary", dictionaryRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/learn-isl", learnIslRoutes);
 
 app.use(errorHandlerMiddleware);
 
