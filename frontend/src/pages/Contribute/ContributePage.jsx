@@ -111,6 +111,13 @@ function ContributePage() {
       <div className="contributions-box">
         <div className="contributions-box-header">
           <h2>Your Contributions</h2>
+          <button
+            className="refresh-button"
+            onClick={handleResetAndReload}
+            disabled={loading}
+          >
+            {loading ? "Refreshing..." : "Refresh"}
+          </button>
         </div>
 
         <div className="contributions-scroll-container">

@@ -32,11 +32,6 @@ const ContributionSchema = new mongoose.Schema(
       trim: true,
     },
 
-    // example: {
-    //   type: String,
-    //   default: "",
-    //   trim: true,
-    // },
 
     videoUrl: {
       type: String,

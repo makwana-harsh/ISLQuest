@@ -1,14 +1,69 @@
+// import { useEffect, useRef } from "react";
+
+// export default function useInfiniteScroll(callback, hasMore, isLoading) {
+//   const sentinelRef = useRef(null);
+
+//   useEffect(() => {
+//     if (!hasMore || isLoading) return;
+
+//     const observer = new IntersectionObserver(
+//       (entries) => {
+//         if (entries[0].isIntersecting && hasMore && !isLoading) {
+//           callback();
+//         }
+//       },
+//       {
+//         threshold: 0.1,
+//         rootMargin: "50px",
+//       }
+//     );
+
+//     const currentRef = sentinelRef.current;
+//     if (currentRef) {
+//       observer.observe(currentRef);
+//     }
+
+//     return () => {
+//       if (currentRef) {
+//         observer.unobserve(currentRef);
+//       }
+//     };
+//   }, [callback, hasMore, isLoading]);
+
+//   return sentinelRef;
+// }
+
 import { useEffect, useRef } from "react";
 
-export default function useInfiniteScroll(callback, hasMore, isLoading) {
+export default function useInfiniteScroll(
+  callback,
+  hasMore,
+  isLoading
+) {
   const sentinelRef = useRef(null);
+  const loadingRef = useRef(false);
 
   useEffect(() => {
-    if (!hasMore || isLoading) return;
+    loadingRef.current = isLoading;
+  }, [isLoading]);
+
+  useEffect(() => {
+    if (!hasMore) return;
+
+    const currentRef = sentinelRef.current;
+
+    if (!currentRef) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasMore && !isLoading) {
+        if (
+          entries[0].isIntersecting &&
+          hasMore &&
+          !loadingRef.current
+        ) {
+          // Immediately lock before calling API
+          loadingRef.current = true;
+
           callback();
         }
       },
@@ -18,17 +73,12 @@ export default function useInfiniteScroll(callback, hasMore, isLoading) {
       }
     );
 
-    const currentRef = sentinelRef.current;
-    if (currentRef) {
-      observer.observe(currentRef);
-    }
+    observer.observe(currentRef);
 
     return () => {
-      if (currentRef) {
-        observer.unobserve(currentRef);
-      }
+      observer.unobserve(currentRef);
     };
-  }, [callback, hasMore, isLoading]);
+  }, [callback, hasMore]);
 
   return sentinelRef;
 }

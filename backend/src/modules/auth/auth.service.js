@@ -17,7 +17,6 @@ export const registerUser = async (data) => {
     $or: [
       { username: data.username },
       { emailId: data.emailId },
-      { mobileNo: data.mobileNo },
     ],
   });
 
@@ -27,11 +26,12 @@ export const registerUser = async (data) => {
 
     if (existingUser.emailId === data.emailId)
       throw new Error("Email already exists");
-
-    throw new Error("Mobile number already exists");
   }
 
-  const hashedPassword = await bcrypt.hash(data.password, 10);
+  const hashedPassword = await bcrypt.hash(
+    data.password,
+    10
+  );
 
   const user = await User.create({
     ...data,
@@ -41,28 +41,37 @@ export const registerUser = async (data) => {
   return getPublicUser(user);
 };
 
-export const loginUser = async ({ username, password }) => {
-  const user = await User.findOne({ username }).select("+password");
+export const loginUser = async ({
+  username,
+  password,
+}) => {
+  const user = await User.findOne({
+    username,
+  }).select("+password");
 
   if (!user) {
     throw new Error("Invalid username or password");
   }
 
-  const passwordValid = await bcrypt.compare(password, user.password);
+  const passwordValid = await bcrypt.compare(
+    password,
+    user.password
+  );
 
   if (!passwordValid) {
     throw new Error("Invalid username or password");
   }
 
-  // Check block
   if (user.isBlocked) {
-    if (!user.blockDuration || user.blockDuration > new Date()) {
-      throw new Error("Your account is blocked");
+    if (!user.blockedUntil || user.blockedUntil > new Date()) {
+      const formattedDate = user.blockedUntil
+        ? ` until ${new Date(user.blockedUntil).toLocaleDateString()}`
+        : "";
+      throw new Error(`Your account is blocked${formattedDate}`);
     }
 
-    // Block duration expired
     user.isBlocked = false;
-    user.blockDuration = null;
+    user.blockedUntil = null;
     await user.save();
   }
 
@@ -91,7 +100,9 @@ export const loginUser = async ({ username, password }) => {
   };
 };
 
-export const verifyAndGenerateAccessToken = async (refreshToken) => {
+export const verifyAndGenerateAccessToken = async (
+  refreshToken
+) => {
   const decoded = jwt.verify(
     refreshToken,
     process.env.JWT_REFRESH_TOKEN_SECRET
@@ -104,12 +115,16 @@ export const verifyAndGenerateAccessToken = async (refreshToken) => {
   }
 
   if (user.isBlocked) {
-    if (!user.blockDuration || user.blockDuration > new Date()) {
+    if (
+      !user.blockedUntil ||
+      user.blockedUntil > new Date()
+    ) {
       throw new Error("Account is blocked");
     }
 
     user.isBlocked = false;
-    user.blockDuration = null;
+    user.blockedUntil = null;
+
     await user.save();
   }
 

@@ -28,10 +28,27 @@ export const setupInterceptors = (
     async (error) => {
       const originalRequest = error.config;
 
+      // 1. IF BLOCKED: Log out immediately and redirect to /dashboard
+      if (
+        error.response?.status === 403 &&
+        error.response?.data?.message?.includes("blocked")
+      ) {
+        await logout();
+        alert("Your account has been restricted by a moderator. You are now browsing as a guest.");
+        window.location.href = "/dashboard";
+        return Promise.reject(error);
+      }
+
+      // 2. Token refresh logic for 401
+      const isAuthEndpoint =
+        originalRequest?.url?.includes("/auth/login") ||
+        originalRequest?.url?.includes("/auth/register") ||
+        originalRequest?.url?.includes("/auth/refresh");
+
       if (
         error.response?.status === 401 &&
         !originalRequest?._retry &&
-        !originalRequest?.url?.includes("/auth/refresh")
+        !isAuthEndpoint
       ) {
         originalRequest._retry = true;
 

@@ -134,8 +134,8 @@ IMPORTANT:
   if (!response.text) {
     throw new Error("Gemini returned an empty response");
   }
-  console.log("raw response : >>>> ", response);
-  console.error("reply : >>> > ",response.text);
+  // console.log("raw response : >>>> ", response);
+  // console.error("reply : >>> > ",response.text);
   try {
     return JSON.parse(response.text);
   } catch {

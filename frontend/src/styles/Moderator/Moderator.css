@@ -1,0 +1,134 @@
+.moderator-page {
+  padding: 30px;
+}
+
+.moderator-box {
+  max-width: 1100px;
+  margin: auto;
+}
+
+.request-box {
+  margin-top: 30px;
+  padding: 20px;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+}
+
+.request-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.request-card {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  width: 100%;
+  padding: 16px;
+  text-align: left;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.request-card:hover {
+  background: #f7f7f7;
+}
+
+.request-card span {
+  color: #555;
+}
+
+.status {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 13px;
+}
+
+.status.pending {
+  background: #fff3cd;
+}
+
+.status.approved {
+  background: #d1e7dd;
+}
+
+.status.rejected {
+  background: #f8d7da;
+}
+
+.scroll-sentinel {
+  height: 20px;
+}
+
+.moderator-detail-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  overflow-y: auto;
+  padding: 30px;
+  background: white;
+}
+
+.moderator-detail {
+  max-width: 900px;
+  margin: auto;
+}
+
+.moderator-detail-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 25px;
+}
+
+.moderator-video video {
+  width: 100%;
+  max-height: 500px;
+  object-fit: contain;
+  margin: 20px 0;
+}
+
+.moderator-detail label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 20px;
+}
+
+.moderator-detail input,
+.moderator-detail textarea {
+  padding: 10px;
+}
+
+.moderator-detail textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+.moderator-detail section {
+  margin-top: 30px;
+}
+
+.user-block-section {
+  padding: 20px;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+}
+
+.moderator-actions {
+  display: flex;
+  gap: 15px;
+  margin-top: 30px;
+  padding-bottom: 40px;
+}
+
+.moderator-actions button {
+  padding: 12px 25px;
+  cursor: pointer;
+}
+
+.moderator-error {
+  color: red;
+}

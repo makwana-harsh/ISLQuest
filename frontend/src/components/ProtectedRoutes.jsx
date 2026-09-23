@@ -1,6 +1,6 @@
+// frontend/src/components/ProtectedRoutes.jsx
 import { Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import HeroNavbar from "./HeroNavbar";
 
 function ProtectedRoutes() {
   const { user, loading } = useAuth();
@@ -9,19 +9,12 @@ function ProtectedRoutes() {
     return <div>Loading...</div>;
   }
 
+  // If unauthenticated user manually types protected URL in browser bar
   if (!user) {
     return <Navigate to="/login" replace />;
   }
 
-  return (
-    <>
-      <HeroNavbar />
-
-      <main>
-        <Outlet />
-      </main>
-    </>
-  );
+  return <Outlet />;
 }
 
 export default ProtectedRoutes;
