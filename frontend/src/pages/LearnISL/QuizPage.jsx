@@ -1,108 +1,75 @@
 import { useEffect, useState } from "react";
 
-import {
-  generateModuleQuiz,
-  submitModuleQuiz,
-} from "../../api/learnIsl.api";
+import { generateModuleQuiz, submitModuleQuiz } from "../../api/learnIsl.api";
+import Stars, { getRank } from "./Stars";
 
 function QuizPage({ module, onClose }) {
   const [questions, setQuestions] = useState([]);
-
-  const [quizToken, setQuizToken] =
-    useState(null);
-
-  const [currentQuestion, setCurrentQuestion] =
-    useState(0);
-
+  const [quizToken, setQuizToken] = useState(null);
+  const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState([]);
 
   const [loading, setLoading] = useState(true);
-
-  const [submitting, setSubmitting] =
-    useState(false);
-
+  const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
-
   const [error, setError] = useState("");
 
   useEffect(() => {
+    let cancelled = false;
+
     const loadQuiz = async () => {
       try {
         setLoading(true);
+        setError("");
 
-        const data = await generateModuleQuiz(
-          module.moduleNumber
-        );
+        const data = await generateModuleQuiz(module.moduleNumber);
+        if (cancelled) return;
 
         setQuestions(data.questions);
         setQuizToken(data.quizToken);
-
         setAnswers(
-          Array.from(
-            { length: data.questions.length },
-            (_, index) => ({
-              questionIndex: index,
-              selectedAnswer: "",
-            })
-          )
+          Array.from({ length: data.questions.length }, (_, index) => ({
+            questionIndex: index,
+            selectedAnswer: "",
+          }))
         );
-      } catch (error) {
-        setError(
-          error.response?.data?.message ||
-            "Failed to generate quiz"
-        );
+      } catch (err) {
+        if (!cancelled) setError(err.response?.data?.message || "Failed to generate quiz");
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     loadQuiz();
+
+    return () => {
+      cancelled = true;
+    };
   }, [module.moduleNumber]);
 
   const current = questions[currentQuestion];
+  const selectedAnswer = answers[currentQuestion]?.selectedAnswer;
+  const answeredCount = answers.filter((answer) => answer.selectedAnswer).length;
 
   const selectAnswer = (signName) => {
     setAnswers((previous) =>
       previous.map((answer) =>
-        answer.questionIndex === currentQuestion
-          ? {
-              ...answer,
-              selectedAnswer: signName,
-            }
-          : answer
+        answer.questionIndex === currentQuestion ? { ...answer, selectedAnswer: signName } : answer
       )
     );
   };
 
-  const selectedAnswer =
-    answers[currentQuestion]?.selectedAnswer;
-
   const nextQuestion = () => {
-    if (currentQuestion < questions.length - 1) {
-      setCurrentQuestion(
-        (previous) => previous + 1
-      );
-    }
+    if (currentQuestion < questions.length - 1) setCurrentQuestion((previous) => previous + 1);
   };
 
   const previousQuestion = () => {
-    if (currentQuestion > 0) {
-      setCurrentQuestion(
-        (previous) => previous - 1
-      );
-    }
+    if (currentQuestion > 0) setCurrentQuestion((previous) => previous - 1);
   };
 
   const finishQuiz = async () => {
-    if (
-      answers.some(
-        (answer) => !answer.selectedAnswer
-      )
-    ) {
-      setError(
-        "Please answer all questions before submitting."
-      );
-
+    if (answers.some((answer) => !answer.selectedAnswer)) {
+      setError("Please answer all questions before submitting.");
       return;
     }
 
@@ -110,17 +77,10 @@ function QuizPage({ module, onClose }) {
       setSubmitting(true);
       setError("");
 
-      const data = await submitModuleQuiz(
-        quizToken,
-        answers
-      );
-
+      const data = await submitModuleQuiz(quizToken, answers);
       setResult(data);
-    } catch (error) {
-      setError(
-        error.response?.data?.message ||
-          "Failed to submit quiz"
-      );
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to submit quiz");
     } finally {
       setSubmitting(false);
     }
@@ -128,9 +88,23 @@ function QuizPage({ module, onClose }) {
 
   if (loading) {
     return (
-      <div className="learn-overlay">
-        <div className="quiz-container">
-          <p>Generating quiz...</p>
+      <div className="ui-scope ui-overlay ln-center">
+        <div className="ln-stack">
+          <div className="ui-spinner" role="status" aria-label="Loading" />
+          <p>Getting your questions ready...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error && questions.length === 0) {
+    return (
+      <div className="ui-scope ui-overlay ln-center">
+        <div className="ln-stack">
+          <p className="ui-alert">{error}</p>
+          <button type="button" className="ui-btn" onClick={onClose}>
+            Back to module
+          </button>
         </div>
       </div>
     );
@@ -138,146 +112,108 @@ function QuizPage({ module, onClose }) {
 
   if (result) {
     return (
-      <div className="learn-overlay">
+      <div className="ui-scope ui-overlay ln-center">
+        <div className="ln-result">
+          <h1>Quiz complete</h1>
 
-        <div className="quiz-result">
-
-          <h1>Quiz Complete 🎉</h1>
-
-          <div className="score">
-            {result.score}/100
+          <div className="ln-score" style={{ "--pct": Math.max(0, Math.min(100, Number(result.score) || 0)) }}>
+            <div>
+              <strong>{result.score}</strong>
+              <span>out of 100</span>
+            </div>
           </div>
 
-          <p>
-            Best Score: {result.bestScore}/100
-          </p>
+          <Stars score={result.score} size={34} />
+          <p className="ln-rank">{getRank(result.score)}</p>
+          <p className="ln-muted">Your best score in this module is {result.bestScore}/100.</p>
 
-          <p>
-            {result.score === 100
-              ? "⭐⭐⭐ Mastery"
-              : result.score >= 80
-              ? "⭐⭐☆ Proficient"
-              : result.score >= 60
-              ? "⭐☆☆ Good Start"
-              : "☆☆☆ Needs Practice"}
-          </p>
-
-          <button
-            className="primary-button"
-            onClick={onClose}
-          >
-            Back to Module
+          <button type="button" className="ui-btn ui-btn--primary" onClick={onClose}>
+            Back to module
           </button>
-
         </div>
-
       </div>
     );
   }
 
-  if (!current) {
-    return null;
-  }
+  if (!current) return null;
+
+  const isLast = currentQuestion === questions.length - 1;
 
   return (
-    <div className="learn-overlay">
-
-      <div className="quiz-container">
-
-        <div className="quiz-header">
-
-          <button
-            className="back-button"
-            onClick={onClose}
-          >
-            ← Exit Quiz
+    <div className="ui-scope ui-overlay">
+      <div className="ln-quiz">
+        <div className="ln-quiz-top">
+          <button type="button" className="ui-back" onClick={onClose}>
+            Exit quiz
           </button>
-
-          <span>
-            Question {currentQuestion + 1}/10
+          <span className="ln-count">
+            Question {currentQuestion + 1} of {questions.length}
           </span>
-
         </div>
 
-        <h1>{current.question}</h1>
+        <div
+          className="ln-progress"
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={questions.length}
+          aria-valuenow={answeredCount}
+          aria-label="Questions answered"
+        >
+          <span style={{ width: `${(answeredCount / questions.length) * 100}%` }} />
+        </div>
+
+        <h1 className="ln-question">{current.question}</h1>
 
         {error && (
-          <p className="learn-error">
+          <p className="ui-alert" role="alert">
             {error}
           </p>
         )}
 
-        <div className="quiz-options">
+        <div className="ln-options">
+          {current.options.map((option) => {
+            const selected = selectedAnswer === option.signName;
 
-          {current.options.map((option) => (
-            <button
-              key={option.signName}
-              className={`quiz-option ${
-                selectedAnswer === option.signName
-                  ? "selected"
-                  : ""
-              }`}
-              onClick={() =>
-                selectAnswer(option.signName)
-              }
-            >
-
-              {option.videoUrl ? (
-                <video
-                  src={option.videoUrl}
-                  muted
-                  playsInline
-                  preload="metadata"
-                />
-              ) : (
-                <div className="video-placeholder">
-                  Video unavailable
-                </div>
-              )}
-
-              <strong>
-                {option.signName}
-              </strong>
-
-            </button>
-          ))}
-
+            return (
+              <button
+                type="button"
+                key={option.signName}
+                className={`ln-option ${selected ? "is-selected" : ""}`}
+                onClick={() => selectAnswer(option.signName)}
+                aria-pressed={selected}
+              >
+                {option.videoUrl ? (
+                  <video src={option.videoUrl} autoPlay loop muted playsInline preload="auto" />
+                ) : (
+                  <div className="ln-video-missing">Video unavailable</div>
+                )}
+                <strong>{option.signName}</strong>
+              </button>
+            );
+          })}
         </div>
 
-        <div className="quiz-navigation">
-
-          <button
-            onClick={previousQuestion}
-            disabled={currentQuestion === 0}
-          >
+        <div className="ln-nav">
+          <button type="button" className="ui-btn" onClick={previousQuestion} disabled={currentQuestion === 0}>
             Previous
           </button>
 
-          {currentQuestion <
-          questions.length - 1 ? (
-            <button
-              onClick={nextQuestion}
-              disabled={!selectedAnswer}
-            >
-              Next
+          {!isLast ? (
+            <button type="button" className="ui-btn ui-btn--primary" onClick={nextQuestion} disabled={!selectedAnswer}>
+              Next question
             </button>
           ) : (
             <button
+              type="button"
+              className="ui-btn ui-btn--primary"
               onClick={finishQuiz}
-              disabled={
-                submitting || !selectedAnswer
-              }
+              disabled={submitting || !selectedAnswer}
             >
-              {submitting
-                ? "Submitting..."
-                : "Submit Quiz"}
+              {submitting ? "Submitting..." : "Submit quiz"}
             </button>
           )}
-
         </div>
-
       </div>
-
     </div>
   );
 }

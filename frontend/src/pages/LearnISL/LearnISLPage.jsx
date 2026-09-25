@@ -1,73 +1,54 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
-import {
-  getLearnModules,
-  getModuleSigns,
-  getLearnSign,
-} from "../../api/learnIsl.api";
+import { getLearnModules, getModuleSigns, getLearnSign } from "../../api/learnIsl.api";
 
 import ModulePage from "./ModulePage";
+import Stars from "./Stars";
 
 import "../../styles/LearnISL/LearnISL.style.css";
 
-function getStars(score) {
-  if (score === 100) return "⭐⭐⭐";
-  if (score >= 80) return "⭐⭐☆";
-  if (score >= 60) return "⭐☆☆";
-  return "☆☆☆";
-}
-
 function LearnISLPage() {
   const [modules, setModules] = useState([]);
-
-  const [selectedModule, setSelectedModule] =
-    useState(null);
-
+  const [selectedModule, setSelectedModule] = useState(null);
   const [signs, setSigns] = useState([]);
-
-  const [selectedSign, setSelectedSign] =
-    useState(null);
+  const [selectedSign, setSelectedSign] = useState(null);
 
   const [loading, setLoading] = useState(true);
-
+  const [openingModule, setOpeningModule] = useState(null);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    const loadModules = async () => {
-      try {
-        setLoading(true);
+  const loadModules = useCallback(async (silent = false) => {
+    try {
+      if (!silent) setLoading(true);
 
-        const data = await getLearnModules();
-
-        setModules(data.modules);
-      } catch (error) {
-        setError(
-          error.response?.data?.message ||
-            "Failed to load modules"
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadModules();
+      const data = await getLearnModules();
+      setModules(data.modules);
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to load modules");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
+  useEffect(() => {
+    loadModules();
+  }, [loadModules]);
+
   const openModule = async (module) => {
+    if (openingModule) return;
+
     try {
       setError("");
+      setOpeningModule(module.moduleNumber);
 
-      const data = await getModuleSigns(
-        module.moduleNumber
-      );
+      const data = await getModuleSigns(module.moduleNumber);
 
       setSigns(data.signs);
       setSelectedModule(module);
-    } catch (error) {
-      setError(
-        error.response?.data?.message ||
-          "Failed to load module"
-      );
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to load module");
+    } finally {
+      setOpeningModule(null);
     }
   };
 
@@ -76,58 +57,72 @@ function LearnISLPage() {
       setError("");
 
       const data = await getLearnSign(signId);
-
       setSelectedSign(data.sign);
-    } catch (error) {
-      setError(
-        error.response?.data?.message ||
-          "Failed to load sign"
-      );
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to load sign");
     }
   };
 
-  if (loading) {
-    return <div className="learn-loading">Loading...</div>;
-  }
+  const closeModule = () => {
+    setSelectedModule(null);
+    setSelectedSign(null);
+    // A quiz may have improved the score, so refresh the stars quietly
+    loadModules(true);
+  };
+
+  const tones = ["teal", "sun", "pink", "sky"];
 
   return (
-    <div className="learn-page">
+    <div className="ui-scope ui-page ln-page">
+      <div className="ui-wrap">
+        <header className="ln-head">
+          <h1>Learn ISL</h1>
+          <p>Work through one module at a time. Finish a quiz to earn up to three stars.</p>
+        </header>
 
-      <div className="learn-header">
-        <h1>Learn ISL</h1>
+        {error && (
+          <p className="ui-alert ln-error" role="alert">
+            {error}
+          </p>
+        )}
 
-        <p>
-          Learn Indian Sign Language step by step.
-        </p>
-      </div>
+        {loading ? (
+          <div className="ln-grid" aria-busy="true">
+            {Array.from({ length: 6 }, (_, index) => (
+              <div key={index} className="ui-skel ln-skel" />
+            ))}
+          </div>
+        ) : modules.length === 0 ? (
+          <div className="ui-empty">
+            <p>No modules are available yet. Please check back soon.</p>
+          </div>
+        ) : (
+          <div className="ln-grid">
+            {modules.map((module, index) => (
+              <button
+                type="button"
+                key={module.moduleNumber}
+                className={`ln-module tone-${tones[index % tones.length]}`}
+                onClick={() => openModule(module)}
+                disabled={openingModule !== null}
+              >
+                <span className="ln-module-no">Module {module.moduleNumber}</span>
+                <h2>{module.moduleName}</h2>
 
-      {error && (
-        <p className="learn-error">
-          {error}
-        </p>
-      )}
-
-      <div className="module-grid">
-        {modules.map((module) => {
-
-          return (
-            <button
-              key={module.moduleNumber}
-              className="module-card"
-              onClick={() => openModule(module)}
-            >
-              <span>
-                Module {module.moduleNumber}
-              </span>
-
-              <h2>{module.moduleName}</h2>
-
-              <span className="module-stars">
-                {getStars(module.score)}
-              </span>
-            </button>
-          );
-        })}
+                <span className="ln-module-foot">
+                  <Stars score={module.score} />
+                  <span>
+                    {openingModule === module.moduleNumber
+                      ? "Opening..."
+                      : module.score > 0
+                      ? `Best ${module.score}/100`
+                      : "Not attempted"}
+                  </span>
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {selectedModule && (
@@ -136,10 +131,7 @@ function LearnISLPage() {
           signs={signs}
           selectedSign={selectedSign}
           onOpenSign={openSign}
-          onClose={() => {
-            setSelectedModule(null);
-            setSelectedSign(null);
-          }}
+          onClose={closeModule}
           onCloseSign={() => setSelectedSign(null)}
         />
       )}

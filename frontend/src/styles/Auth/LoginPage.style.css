@@ -1,0 +1,44 @@
+@import "../Shared/tokens.style.css";
+
+.au-shell { min-height: 100vh; display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); background: var(--bg); }
+
+.au-aside { position: relative; overflow: hidden; display: flex; align-items: center; padding: 56px; background: var(--teal-l); border-right: 2px solid var(--ink); }
+.au-aside::before { content: ""; position: absolute; width: 420px; height: 420px; border-radius: 50%; background: var(--sun); right: -140px; top: -140px; }
+.au-aside::after { content: ""; position: absolute; width: 260px; height: 260px; border-radius: 50%; background: var(--pink-l); left: -90px; bottom: -80px; }
+.au-aside-inner { position: relative; z-index: 1; display: grid; gap: 20px; max-width: 520px; }
+.au-aside h1 { font-size: clamp(32px, 3.6vw, 48px); font-weight: 800; letter-spacing: -.035em; }
+.au-aside p { color: var(--ink-2); font-size: 18px; max-width: 42ch; }
+
+.au-stickers { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; }
+.au-sticker { padding: 9px 16px; font: 700 15px var(--font-display); background: var(--surface); border: 2px solid var(--ink); border-radius: 999px; box-shadow: 0 3px 0 var(--ink); }
+.au-sticker.s1 { transform: rotate(-4deg); }
+.au-sticker.s2 { transform: rotate(3deg); background: var(--sky-l); }
+.au-sticker.s3 { transform: rotate(-2deg); background: var(--pink-l); }
+.au-sticker.s4 { transform: rotate(4deg); background: var(--sun-l); }
+
+.au-panel { display: grid; place-items: center; padding: 40px 24px; }
+.au-card { width: 100%; max-width: 440px; display: grid; gap: 6px; }
+.au-card--wide { max-width: 560px; }
+.au-card h2 { font-size: 34px; font-weight: 800; letter-spacing: -.03em; }
+.au-sub { color: var(--ink-2); margin-bottom: 14px; }
+.au-form { display: grid; gap: 18px; margin-top: 8px; }
+.au-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.au-grid-full { grid-column: 1 / -1; }
+
+.au-password { position: relative; display: block; }
+.au-password .ui-input { padding-right: 76px; }
+.au-toggle { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); padding: 6px 10px; font: 700 13px var(--font-body); color: var(--teal-d); background: transparent; border: 0; border-radius: 8px; cursor: pointer; }
+.au-toggle:hover { background: var(--teal-l); }
+
+.au-switch { margin-top: 18px; color: var(--ink-2); font-size: 15px; }
+.au-switch a { color: var(--teal-d); font-weight: 700; text-underline-offset: 3px; }
+
+.au-mobile-brand { display: none; align-items: center; gap: 10px; margin-bottom: 18px; font: 800 26px var(--font-display); letter-spacing: -.03em; }
+
+@media (max-width: 900px) {
+  .au-shell { grid-template-columns: 1fr; }
+  .au-aside { display: none; }
+  .au-mobile-brand { display: flex; }
+  .au-panel { padding: 32px 20px; align-items: start; }
+}
+@media (max-width: 520px) { .au-grid { grid-template-columns: 1fr; } }

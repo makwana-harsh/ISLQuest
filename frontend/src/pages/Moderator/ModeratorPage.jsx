@@ -1,30 +1,72 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import useInfiniteScroll from "../../hooks/useInfiniteScroll";
-
 import { getModeratorContributions } from "../../api/moderator.api";
 
 import ModeratorContributionDetail from "./ModeratorContributionDetail";
 
 import "../../styles/Moderator/Moderator.css";
 
+function RequestList({ title, hint, items, loading, emptyText, onRefresh, onSelect, sentinelRef }) {
+  return (
+    <section className="md-box">
+      <div className="md-box-head">
+        <div>
+          <h2>{title}</h2>
+          <p>{hint}</p>
+        </div>
+
+        <button type="button" className="ui-btn ui-btn--sm" onClick={onRefresh} disabled={loading}>
+          {loading ? "Refreshing..." : "Refresh"}
+        </button>
+      </div>
+
+      <div className="md-list">
+        {items.map((item) => (
+          <button type="button" key={item._id} className="md-card" onClick={() => onSelect(item._id)}>
+            <span className="md-card-main">
+              <strong>{item.signName}</strong>
+              <span>@{item.userId?.username || "unknown"}</span>
+            </span>
+            <span className="md-card-side">
+              <span className={`ui-badge is-${item.status}`}>{item.status}</span>
+              <time>{new Date(item.createdAt).toLocaleString()}</time>
+            </span>
+          </button>
+        ))}
+
+        {!loading && items.length === 0 && (
+          <div className="ui-empty">
+            <p>{emptyText}</p>
+          </div>
+        )}
+
+        {loading && (
+          <div className="md-loading">
+            <div className="ui-spinner" role="status" aria-label="Loading" />
+          </div>
+        )}
+
+        <div ref={sentinelRef} className="md-sentinel" />
+      </div>
+    </section>
+  );
+}
+
 function ModeratorPage() {
-  // Prevent duplicate initial API calls
+  // Prevent duplicate initial API calls (React StrictMode runs effects twice in dev)
   const initialLoadRef = useRef(false);
 
   // Synchronous request locks
   const incomingLoadingRef = useRef(false);
   const seenLoadingRef = useRef(false);
 
-  // Cursors stored in refs
+  // Cursors stored in refs so the latest value is always used
   const incomingCursorRef = useRef(null);
   const seenCursorRef = useRef(null);
 
   const [incoming, setIncoming] = useState([]);
   const [seen, setSeen] = useState([]);
-
-  const [incomingCursor, setIncomingCursor] = useState(null);
-  const [seenCursor, setSeenCursor] = useState(null);
 
   const [incomingHasMore, setIncomingHasMore] = useState(true);
   const [seenHasMore, setSeenHasMore] = useState(true);
@@ -34,108 +76,81 @@ function ModeratorPage() {
 
   const [selectedId, setSelectedId] = useState(null);
 
-  // -----------------------------
-  // LOAD INCOMING REQUESTS
-  // -----------------------------
-  const loadIncoming = useCallback(async (reset = false) => {
-    if (incomingLoadingRef.current || (!reset && !incomingHasMore)) {
-      return;
-    }
+  const mergeUnique = (previous, next) => {
+    const existingIds = new Set(previous.map((item) => item._id));
+    return [...previous, ...next.filter((item) => !existingIds.has(item._id))];
+  };
 
-    incomingLoadingRef.current = true;
-    setIncomingLoading(true);
+  // ----- incoming -----
+  const loadIncoming = useCallback(
+    async (reset = false) => {
+      if (incomingLoadingRef.current || (!reset && !incomingHasMore)) return;
 
-    try {
-      const activeCursor = reset ? null : incomingCursorRef.current;
-      const data = await getModeratorContributions({
-        status: "pending",
-        cursor: activeCursor,
-      });
+      incomingLoadingRef.current = true;
+      setIncomingLoading(true);
 
-      setIncoming((prev) => {
-        if (reset) return data.contributions;
+      try {
+        const data = await getModeratorContributions({
+          status: "pending",
+          cursor: reset ? null : incomingCursorRef.current,
+        });
 
-        const existingIds = new Set(prev.map((item) => item._id));
-        const newItems = data.contributions.filter(
-          (item) => !existingIds.has(item._id)
-        );
-        return [...prev, ...newItems];
-      });
+        setIncoming((prev) => (reset ? data.contributions : mergeUnique(prev, data.contributions)));
 
-      incomingCursorRef.current = data.nextCursor;
-      setIncomingCursor(data.nextCursor);
-      setIncomingHasMore(data.hasMore);
-    } catch (error) {
-      console.error("Failed to load incoming requests:", error);
-    } finally {
-      incomingLoadingRef.current = false;
-      setIncomingLoading(false);
-    }
-  }, [incomingHasMore]);
+        incomingCursorRef.current = data.nextCursor;
+        setIncomingHasMore(data.hasMore);
+      } catch (error) {
+        console.error("Failed to load incoming requests:", error);
+      } finally {
+        incomingLoadingRef.current = false;
+        setIncomingLoading(false);
+      }
+    },
+    [incomingHasMore]
+  );
 
-  // -----------------------------
-  // LOAD SEEN REQUESTS
-  // -----------------------------
-  const loadSeen = useCallback(async (reset = false) => {
-    if (seenLoadingRef.current || (!reset && !seenHasMore)) {
-      return;
-    }
+  // ----- seen -----
+  const loadSeen = useCallback(
+    async (reset = false) => {
+      if (seenLoadingRef.current || (!reset && !seenHasMore)) return;
 
-    seenLoadingRef.current = true;
-    setSeenLoading(true);
+      seenLoadingRef.current = true;
+      setSeenLoading(true);
 
-    try {
-      const activeCursor = reset ? null : seenCursorRef.current;
-      const data = await getModeratorContributions({
-        status: "seen",
-        cursor: activeCursor,
-      });
+      try {
+        const data = await getModeratorContributions({
+          status: "seen",
+          cursor: reset ? null : seenCursorRef.current,
+        });
 
-      setSeen((prev) => {
-        if (reset) return data.contributions;
+        setSeen((prev) => (reset ? data.contributions : mergeUnique(prev, data.contributions)));
 
-        const existingIds = new Set(prev.map((item) => item._id));
-        const newItems = data.contributions.filter(
-          (item) => !existingIds.has(item._id)
-        );
-        return [...prev, ...newItems];
-      });
+        seenCursorRef.current = data.nextCursor;
+        setSeenHasMore(data.hasMore);
+      } catch (error) {
+        console.error("Failed to load seen requests:", error);
+      } finally {
+        seenLoadingRef.current = false;
+        setSeenLoading(false);
+      }
+    },
+    [seenHasMore]
+  );
 
-      seenCursorRef.current = data.nextCursor;
-      setSeenCursor(data.nextCursor);
-      setSeenHasMore(data.hasMore);
-    } catch (error) {
-      console.error("Failed to load seen requests:", error);
-    } finally {
-      seenLoadingRef.current = false;
-      setSeenLoading(false);
-    }
-  }, [seenHasMore]);
-
-  // -----------------------------
-  // INDIVIDUAL REFRESH HANDLERS
-  // -----------------------------
-  // Refreshes ONLY Incoming Requests box
   const refreshIncoming = () => {
     incomingCursorRef.current = null;
-    setIncomingCursor(null);
     setIncomingHasMore(true);
     incomingLoadingRef.current = false;
     loadIncoming(true);
   };
 
-  // Refreshes ONLY Seen Requests box
   const refreshSeen = () => {
     seenCursorRef.current = null;
-    setSeenCursor(null);
     setSeenHasMore(true);
     seenLoadingRef.current = false;
     loadSeen(true);
   };
 
-  // -----------------------------
-  // INITIAL LOAD
-  // -----------------------------
   useEffect(() => {
     if (initialLoadRef.current) return;
     initialLoadRef.current = true;
@@ -144,115 +159,49 @@ function ModeratorPage() {
     loadSeen();
   }, [loadIncoming, loadSeen]);
 
-  // -----------------------------
-  // INFINITE SCROLL
-  // -----------------------------
-  const incomingSentinel = useInfiniteScroll(
-    loadIncoming,
-    incomingHasMore,
-    incomingLoading
-  );
-
-  const seenSentinel = useInfiniteScroll(
-    loadSeen,
-    seenHasMore,
-    seenLoading
-  );
+  const incomingSentinel = useInfiniteScroll(loadIncoming, incomingHasMore, incomingLoading);
+  const seenSentinel = useInfiniteScroll(loadSeen, seenHasMore, seenLoading);
 
   return (
-    <div className="moderator-page">
-      <div className="moderator-box">
-        <h1>Moderator</h1>
+    <div className="ui-scope ui-page md-page">
+      <div className="ui-wrap">
+        <header className="md-head">
+          <h1>Moderator</h1>
+          <p>Review new sign contributions, edit the details if needed, then accept or reject them.</p>
+        </header>
 
-        {/* =========================
-            INCOMING REQUESTS
-        ========================== */}
-        <section className="request-box">
-          <div className="section-header">
-            <h2>Incoming Requests</h2>
-            <button
-              className="refresh-button"
-              onClick={refreshIncoming}
-              disabled={incomingLoading}
-            >
-              {incomingLoading ? "Refreshing..." : "Refresh"}
-            </button>
-          </div>
+        <div className="md-columns">
+          <RequestList
+            title="Incoming requests"
+            hint="Waiting for a decision"
+            items={incoming}
+            loading={incomingLoading}
+            emptyText="Nothing is waiting for review right now."
+            onRefresh={refreshIncoming}
+            onSelect={setSelectedId}
+            sentinelRef={incomingSentinel}
+          />
 
-          <div className="request-list">
-            {incoming.map((item) => (
-              <button
-                key={item._id}
-                className="request-card"
-                onClick={() => setSelectedId(item._id)}
-              >
-                <strong>{item.signName}</strong>
-                <span>@{item.userId?.username}</span>
-                <span>{new Date(item.createdAt).toLocaleString()}</span>
-                <span className={`status ${item.status}`}>{item.status}</span>
-              </button>
-            ))}
-          </div>
-
-          {incomingLoading && <p className="loading-text">Loading...</p>}
-
-          {!incomingLoading && incoming.length === 0 && (
-            <p>No incoming requests.</p>
-          )}
-
-          <div ref={incomingSentinel} className="scroll-sentinel" />
-        </section>
-
-        {/* =========================
-            SEEN REQUESTS
-        ========================== */}
-        <section className="request-box">
-          <div className="section-header">
-            <h2>Seen Requests</h2>
-            <button
-              className="refresh-button"
-              onClick={refreshSeen}
-              disabled={seenLoading}
-            >
-              {seenLoading ? "Refreshing..." : "Refresh"}
-            </button>
-          </div>
-
-          <div className="request-list">
-            {seen.map((item) => (
-              <button
-                key={item._id}
-                className="request-card"
-                onClick={() => setSelectedId(item._id)}
-              >
-                <strong>{item.signName}</strong>
-                <span>@{item.userId?.username}</span>
-                <span>{new Date(item.createdAt).toLocaleString()}</span>
-                <span className={`status ${item.status}`}>{item.status}</span>
-              </button>
-            ))}
-          </div>
-
-          {seenLoading && <p className="loading-text">Loading...</p>}
-
-          {!seenLoading && seen.length === 0 && (
-            <p>No seen requests.</p>
-          )}
-
-          <div ref={seenSentinel} className="scroll-sentinel" />
-        </section>
+          <RequestList
+            title="Seen requests"
+            hint="Already opened by a moderator"
+            items={seen}
+            loading={seenLoading}
+            emptyText="No requests have been seen yet."
+            onRefresh={refreshSeen}
+            onSelect={setSelectedId}
+            sentinelRef={seenSentinel}
+          />
+        </div>
       </div>
 
-      {/* =========================
-          FULL SCREEN DETAIL
-      ========================== */}
       {selectedId && (
         <ModeratorContributionDetail
           contributionId={selectedId}
           onClose={() => setSelectedId(null)}
           onUpdated={() => {
             setSelectedId(null);
-            // Refresh both lists when moderation details are saved
+            // Refresh both lists once a decision is saved
             refreshIncoming();
             refreshSeen();
           }}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import {
   getModeratorContribution,
@@ -7,13 +7,8 @@ import {
   unblockUser,
 } from "../../api/moderator.api";
 
-function ModeratorContributionDetail({
-  contributionId,
-  onClose,
-  onUpdated,
-}) {
-  const [contribution, setContribution] =
-    useState(null);
+function ModeratorContributionDetail({ contributionId, onClose, onUpdated }) {
+  const [contribution, setContribution] = useState(null);
 
   const [form, setForm] = useState({
     signName: "",
@@ -23,96 +18,59 @@ function ModeratorContributionDetail({
     moderatorFeedback: "",
   });
 
-  const [blockedDate, setBlockedDate] =
-    useState("");
+  const [blockedDate, setBlockedDate] = useState("");
 
-  const [loading, setLoading] =
-    useState(true);
+  const [loading, setLoading] = useState(true);
+  const [savingStatus, setSavingStatus] = useState(null); // "approved" | "rejected" | null
+  const [blocking, setBlocking] = useState(false);
+  const [error, setError] = useState("");
 
-  const [saving, setSaving] =
-    useState(false);
-
-  const [blocking, setBlocking] =
-    useState(false);
-
-  const [error, setError] =
-    useState("");
-
-  const loadContribution = async () => {
+  const loadContribution = useCallback(async () => {
     try {
-      setLoading(true);
-
-      const data =
-        await getModeratorContribution(
-          contributionId
-        );
-
+      const data = await getModeratorContribution(contributionId);
       const item = data.contribution;
 
       setContribution(item);
-
       setForm({
         signName: item.signName || "",
-        description:
-          item.description || "",
+        description: item.description || "",
         meaning: item.meaning || "",
         usage: item.usage || "",
-        moderatorFeedback:
-          item.moderatorFeedback || "",
+        moderatorFeedback: item.moderatorFeedback || "",
       });
-    } catch (error) {
-      console.error(error);
-
-      setError(
-        error.response?.data?.message ||
-          "Failed to load contribution."
-      );
-    } finally {
-      setLoading(false);
+    } catch (err) {
+      console.error(err);
+      setError(err.response?.data?.message || "Failed to load contribution.");
     }
-  };
-
-  useEffect(() => {
-    loadContribution();
   }, [contributionId]);
 
+  useEffect(() => {
+    setLoading(true);
+    loadContribution().finally(() => setLoading(false));
+  }, [loadContribution]);
+
   const handleChange = (event) => {
-    setForm({
-      ...form,
-      [event.target.name]:
-        event.target.value,
-    });
+    const { name, value } = event.target;
+    setForm((previous) => ({ ...previous, [name]: value }));
   };
 
   const handleReview = async (status) => {
     try {
-      setSaving(true);
+      setSavingStatus(status);
       setError("");
 
-      await reviewModeratorContribution(
-        contributionId,
-        {
-          ...form,
-          status,
-        }
-      );
+      await reviewModeratorContribution(contributionId, { ...form, status });
 
       onUpdated();
-    } catch (error) {
-      setError(
-        error.response?.data?.message ||
-          "Failed to update contribution."
-      );
-    } finally {
-      setSaving(false);
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to update contribution.");
+      setSavingStatus(null);
     }
   };
 
   const handleBlock = async () => {
     if (!blockedDate) {
-      setError(
-        "Please select a block date."
-      );
+      setError("Please select a block date.");
       return;
     }
 
@@ -120,24 +78,14 @@ function ModeratorContributionDetail({
       setBlocking(true);
       setError("");
 
-      const blockedUntil =
-        new Date(
-          `${blockedDate}T23:59:59`
-        ).toISOString();
+      const blockedUntil = new Date(`${blockedDate}T23:59:59`).toISOString();
 
-      await blockUser(
-        contribution.userId.mobileNo,
-        blockedUntil
-      );
-
+      await blockUser(contribution.userId.mobileNo, blockedUntil);
       await loadContribution();
 
       setBlockedDate("");
-    } catch (error) {
-      setError(
-        error.response?.data?.message ||
-          "Failed to block user."
-      );
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to block user.");
     } finally {
       setBlocking(false);
     }
@@ -148,16 +96,10 @@ function ModeratorContributionDetail({
       setBlocking(true);
       setError("");
 
-      await unblockUser(
-        contribution.userId.mobileNo
-      );
-
+      await unblockUser(contribution.userId.mobileNo);
       await loadContribution();
-    } catch (error) {
-      setError(
-        error.response?.data?.message ||
-          "Failed to unblock user."
-      );
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to unblock user.");
     } finally {
       setBlocking(false);
     }
@@ -165,297 +107,185 @@ function ModeratorContributionDetail({
 
   if (loading) {
     return (
-      <div className="moderator-detail-overlay">
-        <p>Loading...</p>
+      <div className="ui-scope ui-overlay md-center">
+        <div className="ui-spinner" role="status" aria-label="Loading" />
       </div>
     );
   }
 
   if (!contribution) {
     return (
-      <div className="moderator-detail-overlay">
-        <p>{error}</p>
-
-        <button onClick={onClose}>
-          Back
-        </button>
+      <div className="ui-scope ui-overlay md-center">
+        <div className="md-stack">
+          <p className="ui-alert">{error || "Contribution not found."}</p>
+          <button type="button" className="ui-btn" onClick={onClose}>
+            Go back
+          </button>
+        </div>
       </div>
     );
   }
 
   const user = contribution.userId;
+  const busy = savingStatus !== null || blocking;
+  const today = new Date().toISOString().split("T")[0];
 
   return (
-    <div className="moderator-detail-overlay">
-
-      <div className="moderator-detail">
-
-        <div className="moderator-detail-header">
-
-          <button
-            type="button"
-            onClick={onClose}
-          >
-            ← Back
+    <div className="ui-scope ui-overlay">
+      <div className="md-detail">
+        <div className="md-detail-top">
+          <button type="button" className="ui-back" onClick={onClose}>
+            Back
           </button>
-
-          <strong>
-            {contribution.status}
-          </strong>
-
+          <span className={`ui-badge is-${contribution.status}`}>{contribution.status}</span>
         </div>
 
+        <h1 className="md-detail-title">Review contribution</h1>
+
         {error && (
-          <p className="moderator-error">
+          <p className="ui-alert" role="alert">
             {error}
           </p>
         )}
 
-        <h1>
-          Contribution Review
-        </h1>
+        <div className="md-detail-grid">
+          {/* left column: evidence */}
+          <div className="md-col">
+            <video className="ui-video" src={contribution.videoUrl} controls playsInline />
 
-        {/* VIDEO */}
+            <section className="md-panel">
+              <h2>Contributor</h2>
+              <dl className="md-facts">
+                <div>
+                  <dt>Username</dt>
+                  <dd>{user?.username || "Unknown"}</dd>
+                </div>
+                <div>
+                  <dt>Email</dt>
+                  <dd>{user?.emailId || "Unknown"}</dd>
+                </div>
+                <div>
+                  <dt>Mobile</dt>
+                  <dd>{user?.mobileNo || "Unknown"}</dd>
+                </div>
+                <div>
+                  <dt>Uploaded</dt>
+                  <dd>{new Date(contribution.createdAt).toLocaleString()}</dd>
+                </div>
+              </dl>
+            </section>
 
-        <div className="moderator-video">
-          <video
-            src={contribution.videoUrl}
-            controls
-            playsInline
-          />
-        </div>
-
-        {/* SIGN INFORMATION */}
-
-        <label>
-          Sign Name
-
-          <input
-            name="signName"
-            value={form.signName}
-            onChange={handleChange}
-          />
-        </label>
-
-        <label>
-          Description
-
-          <textarea
-            name="description"
-            value={form.description}
-            onChange={handleChange}
-          />
-        </label>
-
-        <label>
-          Meaning
-
-          <textarea
-            name="meaning"
-            value={form.meaning}
-            onChange={handleChange}
-          />
-        </label>
-
-        <label>
-          Usage
-
-          <textarea
-            name="usage"
-            value={form.usage}
-            onChange={handleChange}
-          />
-        </label>
-
-        {/* USER INFORMATION */}
-
-        <section>
-          <h2>
-            User Information
-          </h2>
-
-          <p>
-            Username: {user?.username}
-          </p>
-
-          <p>
-            Email: {user?.emailId}
-          </p>
-
-          <p>
-            Mobile: {user?.mobileNo}
-          </p>
-
-          <p>
-            Uploaded:{" "}
-            {new Date(
-              contribution.createdAt
-            ).toLocaleString()}
-          </p>
-        </section>
-
-        {/* LLM REVIEW */}
-
-        <section>
-          <h2>
-            LLM Review
-          </h2>
-
-          <p>
-            Suitable:{" "}
-            {contribution.llmReview?.approved
-              ? "Yes"
-              : "No"}
-          </p>
-
-          {contribution.llmReview?.issues
-            ?.length > 0 && (
-            <ul>
-              {contribution.llmReview.issues.map(
-                (issue, index) => (
-                  <li key={index}>
-                    {issue}
-                  </li>
-                )
-              )}
-            </ul>
-          )}
-
-          {contribution.llmReview
-            ?.suggestion && (
-            <p>
-              Suggestion:{" "}
-              {
-                contribution.llmReview
-                  .suggestion
-              }
-            </p>
-          )}
-        </section>
-
-        {/* MODERATOR FEEDBACK */}
-
-        <label>
-          Moderator Feedback / Warning
-
-          <textarea
-            name="moderatorFeedback"
-            value={
-              form.moderatorFeedback
-            }
-            onChange={handleChange}
-            placeholder="Feedback or warning for the user"
-          />
-        </label>
-
-        {/* BLOCK USER */}
-
-        <section className="user-block-section">
-
-          <h2>
-            User Block
-          </h2>
-
-          <p>
-            This will affect all accounts
-            using this mobile number.
-          </p>
-
-          <p>
-            Mobile:{" "}
-            <strong>
-              {user?.mobileNo}
-            </strong>
-          </p>
-
-          {user?.isBlocked ? (
-            <>
-              <p>
-                Blocked until:{" "}
-                {user.blockedUntil
-                  ? new Date(
-                      user.blockedUntil
-                    ).toLocaleString()
-                  : "Unknown"}
+            <section className={`md-panel md-llm ${contribution.llmReview?.approved ? "is-ok" : "is-flag"}`}>
+              <h2>Automatic check</h2>
+              <p className="md-llm-verdict">
+                {contribution.llmReview?.approved ? "Looks suitable" : "Flagged as not suitable"}
               </p>
 
-              <button
-                type="button"
-                onClick={handleUnblock}
-                disabled={blocking}
-              >
-                {blocking
-                  ? "Unblocking..."
-                  : "Unblock User"}
-              </button>
-            </>
-          ) : (
-            <>
-              <label>
-                Block Until
+              {contribution.llmReview?.issues?.length > 0 && (
+                <ul>
+                  {contribution.llmReview.issues.map((issue, index) => (
+                    <li key={index}>{issue}</li>
+                  ))}
+                </ul>
+              )}
 
-                <input
-                  type="date"
-                  value={blockedDate}
-                  onChange={(e) =>
-                    setBlockedDate(
-                      e.target.value
-                    )
-                  }
-                  min={
-                    new Date()
-                      .toISOString()
-                      .split("T")[0]
-                  }
-                />
+              {contribution.llmReview?.suggestion && <p>Suggestion: {contribution.llmReview.suggestion}</p>}
+            </section>
+          </div>
+
+          {/* right column: editable details */}
+          <div className="md-col">
+            <section className="md-panel md-form">
+              <h2>Sign details</h2>
+
+              <label className="ui-field">
+                Sign name
+                <input className="ui-input" name="signName" value={form.signName} onChange={handleChange} />
               </label>
 
-              <button
-                type="button"
-                onClick={handleBlock}
-                disabled={blocking}
-              >
-                {blocking
-                  ? "Blocking..."
-                  : "Block User"}
-              </button>
-            </>
-          )}
+              <label className="ui-field">
+                Description
+                <textarea className="ui-textarea" name="description" value={form.description} onChange={handleChange} />
+              </label>
 
-        </section>
+              <label className="ui-field">
+                Meaning
+                <textarea className="ui-textarea" name="meaning" value={form.meaning} onChange={handleChange} />
+              </label>
 
-        {/* ACTIONS */}
+              <label className="ui-field">
+                Usage
+                <textarea className="ui-textarea" name="usage" value={form.usage} onChange={handleChange} />
+              </label>
 
-        <div className="moderator-actions">
+              {contribution.example && (
+                <div className="md-readonly">
+                  <span>Example from contributor</span>
+                  <p>{contribution.example}</p>
+                </div>
+              )}
 
-          <button
-            type="button"
-            onClick={() =>
-              handleReview("approved")
-            }
-            disabled={saving}
-          >
-            {saving
-              ? "Saving..."
-              : "Accept"}
-          </button>
+              <label className="ui-field">
+                Feedback or warning for the user
+                <textarea
+                  className="ui-textarea"
+                  name="moderatorFeedback"
+                  value={form.moderatorFeedback}
+                  onChange={handleChange}
+                  placeholder="Tell the contributor why you accepted or rejected this."
+                />
+              </label>
+            </section>
 
-          <button
-            type="button"
-            onClick={() =>
-              handleReview("rejected")
-            }
-            disabled={saving}
-          >
-            {saving
-              ? "Saving..."
-              : "Reject"}
-          </button>
+            <section className="md-panel md-block">
+              <h2>Block this user</h2>
+              <p className="md-muted">
+                Blocking applies to every account that uses the mobile number <strong>{user?.mobileNo || "unknown"}</strong>.
+              </p>
 
+              {!user ? (
+                <p className="md-muted">User details are not available for this contribution.</p>
+              ) : user.isBlocked ? (
+                <>
+                  <p className="ui-alert">
+                    Blocked until {user.blockedUntil ? new Date(user.blockedUntil).toLocaleString() : "an unknown date"}
+                  </p>
+                  <button type="button" className="ui-btn ui-btn--sm" onClick={handleUnblock} disabled={busy}>
+                    {blocking ? "Unblocking..." : "Unblock user"}
+                  </button>
+                </>
+              ) : (
+                <div className="md-block-row">
+                  <label className="ui-field">
+                    Block until
+                    <input
+                      className="ui-input"
+                      type="date"
+                      value={blockedDate}
+                      min={today}
+                      onChange={(e) => setBlockedDate(e.target.value)}
+                    />
+                  </label>
+
+                  <button type="button" className="ui-btn ui-btn--sm ui-btn--danger" onClick={handleBlock} disabled={busy}>
+                    {blocking ? "Blocking..." : "Block user"}
+                  </button>
+                </div>
+              )}
+            </section>
+          </div>
         </div>
 
-      </div>
+        <div className="md-actions">
+          <button type="button" className="ui-btn ui-btn--danger" onClick={() => handleReview("rejected")} disabled={busy}>
+            {savingStatus === "rejected" ? "Rejecting..." : "Reject"}
+          </button>
 
+          <button type="button" className="ui-btn ui-btn--primary" onClick={() => handleReview("approved")} disabled={busy}>
+            {savingStatus === "approved" ? "Accepting..." : "Accept sign"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

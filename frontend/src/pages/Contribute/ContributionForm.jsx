@@ -1,125 +1,180 @@
 import { useEffect, useRef, useState } from "react";
+
 import { submitContribution } from "../../api/contribution.api";
+
+const MIN_SECONDS = 3;
+const MAX_SECONDS = 8;
+
+function pickMimeType() {
+  if (typeof MediaRecorder === "undefined") return null;
+  if (MediaRecorder.isTypeSupported("video/webm;codecs=vp9")) return "video/webm;codecs=vp9";
+  if (MediaRecorder.isTypeSupported("video/webm")) return "video/webm";
+  return "video/mp4"; // Safari / iOS
+}
 
 function ContributionForm({ onBack, onSubmitted }) {
   const fileInputRef = useRef(null);
-  const videoRef = useRef(null);
+  const liveVideoRef = useRef(null);
+  const streamRef = useRef(null);
+  const recorderRef = useRef(null);
+  const timerRef = useRef(null);
+  const startedAtRef = useRef(0);
 
   const [form, setForm] = useState({
     signName: "",
     description: "",
     meaning: "",
     usage: "",
+    example: "",
   });
 
   const [video, setVideo] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
   const [cameraOpen, setCameraOpen] = useState(false);
-  const [stream, setStream] = useState(null);
   const [recording, setRecording] = useState(false);
-  const [mediaRecorder, setMediaRecorder] = useState(null);
+  const [seconds, setSeconds] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setForm((previous) => ({ ...previous, [name]: value }));
   };
 
-  // Safely attach stream to video element when camera opens
+  // Preview URL for the chosen / recorded video (revoked when replaced)
   useEffect(() => {
-    if (cameraOpen && stream && videoRef.current) {
-      videoRef.current.srcObject = stream;
+    if (!video) {
+      setPreviewUrl(null);
+      return undefined;
     }
-  }, [cameraOpen, stream]);
+    const url = URL.createObjectURL(video);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [video]);
 
-  // Clean up media tracks on unmount ONLY
+  // Attach the camera stream once the <video> element exists
+  useEffect(() => {
+    if (cameraOpen && liveVideoRef.current && streamRef.current) {
+      liveVideoRef.current.srcObject = streamRef.current;
+    }
+  }, [cameraOpen]);
+
+  // Release camera + recorder when leaving the screen
   useEffect(() => {
     return () => {
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
+      clearInterval(timerRef.current);
+      if (recorderRef.current && recorderRef.current.state !== "inactive") {
+        recorderRef.current.onstop = null;
+        recorderRef.current.stop();
       }
+      streamRef.current?.getTracks().forEach((track) => track.stop());
     };
-  }, [stream]);
-
-  const startCamera = async () => {
-    try {
-      setError("");
-      if (cameraOpen) return;
-
-      const cameraStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user" },
-        audio: false,
-      });
-
-      setStream(cameraStream);
-      setCameraOpen(true);
-    } catch (err) {
-      console.error(err);
-      setError("Unable to access camera. Please allow camera permissions.");
-    }
-  };
+  }, []);
 
   const stopCamera = () => {
-    if (stream) {
-      stream.getTracks().forEach((track) => track.stop());
-    }
-    setStream(null);
+    clearInterval(timerRef.current);
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
     setCameraOpen(false);
   };
 
-  const startRecording = () => {
-    if (!stream) {
-      setError("Please start the camera first.");
-      return;
-    }
+  const startCamera = async () => {
+    if (cameraOpen) return;
     setError("");
 
-    // Detect browser-supported video MIME type (iOS vs Chrome/Firefox)
-    const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
-      ? "video/webm;codecs=vp9"
-      : MediaRecorder.isTypeSupported("video/webm")
-      ? "video/webm"
-      : "video/mp4";
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setError("Your browser does not support camera access. Try uploading a file instead.");
+      return;
+    }
 
-    const recorder = new MediaRecorder(stream, { mimeType });
-    const chunks = [];
-
-    recorder.ondataavailable = (event) => {
-      if (event.data && event.data.size > 0) {
-        chunks.push(event.data);
-      }
-    };
-
-    recorder.onstop = () => {
-      const blob = new Blob(chunks, { type: mimeType });
-      const extension = mimeType.includes("mp4") ? "mp4" : "webm";
-      const recordedFile = new File([blob], `contribution.${extension}`, {
-        type: mimeType,
+    try {
+      streamRef.current = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "user" },
+        audio: false,
       });
-
-      setVideo(recordedFile);
-      stopCamera();
-    };
-
-    recorder.onerror = (err) => {
-      console.error("MediaRecorder error:", err);
-      setError("Failed to record video.");
-    };
-
-    recorder.start();
-    setMediaRecorder(recorder);
-    setRecording(true);
+      setCameraOpen(true);
+    } catch (err) {
+      console.error(err);
+      setError("Unable to access the camera. Please allow camera permission and try again.");
+    }
   };
 
   const stopRecording = () => {
-    if (mediaRecorder && mediaRecorder.state !== "inactive") {
-      mediaRecorder.stop();
+    if (recorderRef.current && recorderRef.current.state !== "inactive") {
+      recorderRef.current.stop();
     }
-    setRecording(false);
-    setMediaRecorder(null);
+  };
+
+  const startRecording = () => {
+    if (!streamRef.current) {
+      setError("Start the camera first.");
+      return;
+    }
+
+    const mimeType = pickMimeType();
+    if (!mimeType) {
+      setError("Recording is not supported in this browser. Try uploading a file instead.");
+      return;
+    }
+
+    setError("");
+
+    let recorder;
+    try {
+      recorder = new MediaRecorder(streamRef.current, { mimeType });
+    } catch (err) {
+      console.error(err);
+      setError("Could not start recording in this browser. Try uploading a file instead.");
+      return;
+    }
+
+    const chunks = [];
+
+    recorder.ondataavailable = (event) => {
+      if (event.data && event.data.size > 0) chunks.push(event.data);
+    };
+
+    recorder.onerror = (event) => {
+      console.error("MediaRecorder error:", event);
+      clearInterval(timerRef.current);
+      setRecording(false);
+      setError("Failed to record video.");
+    };
+
+    recorder.onstop = () => {
+      clearInterval(timerRef.current);
+      setRecording(false);
+      recorderRef.current = null;
+
+      const elapsed = (Date.now() - startedAtRef.current) / 1000;
+
+      if (elapsed < MIN_SECONDS) {
+        setError(`That recording was too short. Please record at least ${MIN_SECONDS} seconds.`);
+        return;
+      }
+
+      const blob = new Blob(chunks, { type: mimeType });
+      const extension = mimeType.includes("mp4") ? "mp4" : "webm";
+      setVideo(new File([blob], `contribution.${extension}`, { type: mimeType }));
+      stopCamera();
+    };
+
+    recorderRef.current = recorder;
+    startedAtRef.current = Date.now();
+    setSeconds(0);
+    recorder.start();
+    setRecording(true);
+
+    timerRef.current = setInterval(() => {
+      const elapsed = (Date.now() - startedAtRef.current) / 1000;
+      setSeconds(elapsed);
+      if (elapsed >= MAX_SECONDS) stopRecording();
+    }, 200);
   };
 
   const handleFile = (event) => {
     const file = event.target.files?.[0];
+    event.target.value = "";
     if (!file) return;
 
     if (!file.type.startsWith("video/")) {
@@ -128,8 +183,8 @@ function ContributionForm({ onBack, onSubmitted }) {
     }
 
     setError("");
+    if (cameraOpen) stopCamera();
     setVideo(file);
-    event.target.value = "";
   };
 
   const handleSubmit = async (event) => {
@@ -137,150 +192,185 @@ function ContributionForm({ onBack, onSubmitted }) {
     setError("");
 
     if (recording) {
-      setError("Please stop recording before submitting.");
+      setError("Stop recording before you submit.");
       return;
     }
 
     if (!video) {
-      setError("Please record or upload a video.");
+      setError("Record or upload a video of the sign.");
       return;
     }
 
     if (!form.signName.trim() || !form.meaning.trim() || !form.usage.trim()) {
-      setError("Sign name, meaning, and usage are required.");
+      setError("Sign name, meaning and usage are required.");
       return;
     }
 
     try {
       setLoading(true);
+
       const formData = new FormData();
       formData.append("video", video);
-      formData.append("signName", form.signName);
-      formData.append("description", form.description);
-      formData.append("meaning", form.meaning);
-      formData.append("usage", form.usage);
-      formData.append("example", form.example);
+      formData.append("signName", form.signName.trim());
+      formData.append("description", form.description.trim());
+      formData.append("meaning", form.meaning.trim());
+      formData.append("usage", form.usage.trim());
+      formData.append("example", form.example.trim());
 
       await submitContribution(formData);
       onSubmitted();
     } catch (err) {
       console.error(err);
       setError(err.response?.data?.message || "Failed to submit contribution.");
-    } finally {
       setLoading(false);
     }
   };
 
+  const busy = loading || recording;
+
   return (
-    <div className="contribute-form-overlay">
-      <div className="contribute-form">
-        <button type="button" onClick={onBack} className="back-button">
-          ← Back
+    <div className="ui-scope ui-overlay">
+      <div className="ct-form-wrap">
+        <button type="button" onClick={onBack} className="ui-back" disabled={loading}>
+          Back
         </button>
 
-        <h1>Contribute a Sign</h1>
+        <h1 className="ct-form-title">Contribute a sign</h1>
+        <p className="ct-muted">Show the sign on video, then tell us what it means and when to use it.</p>
 
-        {error && <p className="contribute-error">{error}</p>}
-
-        <div className="video-actions">
-          {!cameraOpen ? (
-            <button type="button" onClick={startCamera} disabled={loading}>
-              Start Camera
-            </button>
-          ) : (
-            <button type="button" onClick={stopCamera} disabled={recording || loading}>
-              Close Camera
-            </button>
-          )}
-
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={recording || loading}
-          >
-            Upload File
-          </button>
-
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="video/*"
-            hidden
-            onChange={handleFile}
-          />
-        </div>
-
-        {cameraOpen && (
-          <div className="camera-container">
-            <video ref={videoRef} autoPlay muted playsInline />
-
-            {!recording ? (
-              <button type="button" onClick={startRecording} disabled={loading}>
-                Start Recording
-              </button>
-            ) : (
-              <button type="button" onClick={stopRecording} disabled={loading}>
-                Stop Recording
-              </button>
-            )}
-          </div>
-        )}
-
-        {video && (
-          <p>
-            Selected video: <strong>{video.name}</strong>
+        {error && (
+          <p className="ui-alert ct-form-alert" role="alert">
+            {error}
           </p>
         )}
 
-        <form onSubmit={handleSubmit}>
-          <label>
-            Sign Name *
-            <input
-              name="signName"
-              value={form.signName}
-              onChange={handleChange}
-              placeholder="Example: Medicine"
-              disabled={loading}
-            />
-          </label>
+        <form onSubmit={handleSubmit} className="ct-form">
+          <div className="ct-media">
+            <div className={`ct-stage ${video && !cameraOpen ? "has-video" : ""}`}>
+              {cameraOpen && (
+                <>
+                  <video ref={liveVideoRef} className="ct-live" autoPlay muted playsInline />
+                  {recording && (
+                    <span className="ct-rec">
+                      <i /> {seconds.toFixed(1)}s / {MAX_SECONDS}s
+                    </span>
+                  )}
+                </>
+              )}
 
-          <label>
-            Description
-            <textarea
-              name="description"
-              value={form.description}
-              onChange={handleChange}
-              placeholder="Why are you contributing this sign?"
-              disabled={loading}
-            />
-          </label>
+              {!cameraOpen && previewUrl && <video className="ct-preview" src={previewUrl} controls playsInline />}
 
-          <label>
-            Meaning *
-            <textarea
-              name="meaning"
-              value={form.meaning}
-              onChange={handleChange}
-              placeholder="What does this sign mean?"
-              disabled={loading}
-            />
-          </label>
+              {!cameraOpen && !previewUrl && (
+                <p className="ct-stage-empty">
+                  Record a video of {MIN_SECONDS} to {MAX_SECONDS} seconds, or upload one from your device.
+                </p>
+              )}
+            </div>
 
-          <label>
-            Usage *
-            <textarea
-              name="usage"
-              value={form.usage}
-              onChange={handleChange}
-              placeholder="When is this sign used?"
-              disabled={loading}
-            />
-          </label>
+            {video && !cameraOpen && (
+              <p className="ct-file">
+                <strong>{video.name}</strong>
+                <button type="button" onClick={() => setVideo(null)} disabled={loading}>
+                  Remove
+                </button>
+              </p>
+            )}
 
+            <div className="ct-media-actions">
+              {!cameraOpen ? (
+                <button type="button" className="ui-btn ui-btn--sm" onClick={startCamera} disabled={busy}>
+                  Open camera
+                </button>
+              ) : (
+                <>
+                  {!recording ? (
+                    <button type="button" className="ui-btn ui-btn--sm ui-btn--primary" onClick={startRecording} disabled={loading}>
+                      Start recording
+                    </button>
+                  ) : (
+                    <button type="button" className="ui-btn ui-btn--sm ui-btn--danger" onClick={stopRecording}>
+                      Stop recording
+                    </button>
+                  )}
+                  <button type="button" className="ui-btn ui-btn--sm" onClick={stopCamera} disabled={busy}>
+                    Close camera
+                  </button>
+                </>
+              )}
 
-          <button type="submit" disabled={loading || recording}>
-            {loading ? "Submitting..." : "Submit Contribution"}
-          </button>
+              <button type="button" className="ui-btn ui-btn--sm" onClick={() => fileInputRef.current?.click()} disabled={busy}>
+                Upload a file
+              </button>
+
+              <input ref={fileInputRef} type="file" accept="video/*" hidden onChange={handleFile} />
+            </div>
+          </div>
+
+          <div className="ct-fields">
+            <label className="ui-field">
+              Sign name *
+              <input
+                className="ui-input"
+                name="signName"
+                value={form.signName}
+                onChange={handleChange}
+                placeholder="For example: Medicine"
+                disabled={loading}
+              />
+            </label>
+
+            <label className="ui-field">
+              Meaning *
+              <textarea
+                className="ui-textarea"
+                name="meaning"
+                value={form.meaning}
+                onChange={handleChange}
+                placeholder="What does this sign mean?"
+                disabled={loading}
+              />
+            </label>
+
+            <label className="ui-field">
+              Usage *
+              <textarea
+                className="ui-textarea"
+                name="usage"
+                value={form.usage}
+                onChange={handleChange}
+                placeholder="When and how is this sign used?"
+                disabled={loading}
+              />
+            </label>
+
+            <label className="ui-field">
+              Example sentence
+              <textarea
+                className="ui-textarea"
+                name="example"
+                value={form.example}
+                onChange={handleChange}
+                placeholder="Optional. A short sentence that uses the sign."
+                disabled={loading}
+              />
+            </label>
+
+            <label className="ui-field">
+              Why are you adding it?
+              <textarea
+                className="ui-textarea"
+                name="description"
+                value={form.description}
+                onChange={handleChange}
+                placeholder="Optional. Anything the moderator should know."
+                disabled={loading}
+              />
+            </label>
+
+            <button type="submit" className="ui-btn ui-btn--primary ct-submit" disabled={busy}>
+              {loading ? "Submitting..." : "Submit for review"}
+            </button>
+          </div>
         </form>
       </div>
     </div>

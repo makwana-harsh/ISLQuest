@@ -1,181 +1,116 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
-import {
-  getContribution,
-} from "../../api/contribution.api";
+import { getContribution } from "../../api/contribution.api";
 
-function ContributionDetail({
-  contributionId,
-  onClose,
-}) {
-  const [contribution, setContribution] =
-    useState(null);
+function ContributionDetail({ contributionId, onClose }) {
+  const [contribution, setContribution] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState("");
 
-  const [loading, setLoading] =
-    useState(true);
+  const loadContribution = useCallback(
+    async (isRefresh = false) => {
+      try {
+        if (isRefresh) setRefreshing(true);
+        else setLoading(true);
 
-  const [refreshing, setRefreshing] =
-    useState(false);
+        const data = await getContribution(contributionId);
 
-  const [error, setError] =
-    useState("");
-
-  const loadContribution = async (
-    isRefresh = false
-  ) => {
-    try {
-      if (isRefresh) {
-        setRefreshing(true);
-      } else {
-        setLoading(true);
+        setContribution(data.contribution);
+        setError("");
+      } catch (err) {
+        setError(err.response?.data?.message || "Failed to load contribution.");
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
       }
-
-      const data =
-        await getContribution(
-          contributionId
-        );
-
-      setContribution(
-        data.contribution
-      );
-
-      setError("");
-    } catch (error) {
-      setError(
-        error.response?.data?.message ||
-          "Failed to load contribution."
-      );
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
+    },
+    [contributionId]
+  );
 
   useEffect(() => {
     loadContribution();
-  }, [contributionId]);
+  }, [loadContribution]);
 
   if (loading) {
     return (
-      <div className="contribution-detail-overlay">
-        <p>Loading...</p>
+      <div className="ui-scope ui-overlay ct-center">
+        <div className="ui-spinner" role="status" aria-label="Loading" />
       </div>
     );
   }
 
   if (!contribution) {
     return (
-      <div className="contribution-detail-overlay">
-        <p>{error}</p>
-
-        <button onClick={onClose}>
-          Back
-        </button>
+      <div className="ui-scope ui-overlay ct-center">
+        <div className="ct-stack">
+          <p className="ui-alert">{error || "Contribution not found."}</p>
+          <button type="button" className="ui-btn" onClick={onClose}>
+            Go back
+          </button>
+        </div>
       </div>
     );
   }
 
+  const feedbackTone = contribution.status === "rejected" ? "is-rejected" : contribution.status === "approved" ? "is-approved" : "";
+
   return (
-    <div className="contribution-detail-overlay">
-
-      <div className="contribution-detail">
-
-        <div className="detail-topbar">
-
-          <button
-            onClick={onClose}
-            className="back-button"
-          >
-            ← Back
+    <div className="ui-scope ui-overlay">
+      <div className="ct-detail">
+        <div className="ct-topbar">
+          <button type="button" onClick={onClose} className="ui-back">
+            Back
           </button>
 
-          <button
-            onClick={() =>
-              loadContribution(true)
-            }
-            disabled={refreshing}
-          >
-            {refreshing
-              ? "Refreshing..."
-              : "↻ Refresh"}
+          <button type="button" className="ui-btn ui-btn--sm" onClick={() => loadContribution(true)} disabled={refreshing}>
+            {refreshing ? "Refreshing..." : "Refresh"}
           </button>
-
         </div>
 
-        {error && (
-          <p className="contribute-error">
-            {error}
-          </p>
-        )}
+        {error && <p className="ui-alert">{error}</p>}
 
-        <span
-          className={`status ${contribution.status}`}
-        >
-          {contribution.status}
-        </span>
-
-        <h1>
-          {contribution.signName}
-        </h1>
-
-        <div className="contribution-video">
-
-          <video
-            src={contribution.videoUrl}
-            controls
-            playsInline
-          />
-
-        </div>
-
-        {contribution.description && (
-          <section>
-            <h3>Description</h3>
-            <p>
-              {contribution.description}
-            </p>
-          </section>
-        )}
-
-        <section>
-          <h3>Meaning</h3>
-          <p>
-            {contribution.meaning}
-          </p>
-        </section>
-
-        <section>
-          <h3>Usage</h3>
-          <p>
-            {contribution.usage}
-          </p>
-        </section>
-
-        {contribution.example && (
-          <section>
-            <h3>Example</h3>
-            <p>
-              {contribution.example}
-            </p>
-          </section>
-        )}
-
-        <section>
-          <h3>Moderator Review</h3>
-
-          {contribution.moderatorFeedback ? (
-            <p>
-              {contribution.moderatorFeedback}
-            </p>
-          ) : (
-            <p>
-              Moderator review is not available yet.
-            </p>
+        <header className="ct-detail-head">
+          <span className={`ui-badge is-${contribution.status}`}>{contribution.status}</span>
+          <h1>{contribution.signName}</h1>
+          {contribution.createdAt && (
+            <p className="ct-muted">Submitted {new Date(contribution.createdAt).toLocaleString()}</p>
           )}
+        </header>
+
+        <video className="ui-video" src={contribution.videoUrl} controls playsInline />
+
+        <div className="ct-sections">
+          {contribution.description && (
+            <section>
+              <h3>Why this sign</h3>
+              <p>{contribution.description}</p>
+            </section>
+          )}
+
+          <section>
+            <h3>Meaning</h3>
+            <p>{contribution.meaning}</p>
+          </section>
+
+          <section>
+            <h3>Usage</h3>
+            <p>{contribution.usage}</p>
+          </section>
+
+          {contribution.example && (
+            <section>
+              <h3>Example</h3>
+              <p>{contribution.example}</p>
+            </section>
+          )}
+        </div>
+
+        <section className={`ct-review ${feedbackTone}`}>
+          <h3>Moderator review</h3>
+          <p>{contribution.moderatorFeedback || "A moderator has not reviewed this yet."}</p>
         </section>
-
       </div>
-
     </div>
   );
 }

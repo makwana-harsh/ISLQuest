@@ -3,81 +3,44 @@ import { useState } from "react";
 import SignDetail from "./SignDetail";
 import QuizPage from "./QuizPage";
 
-function ModulePage({
-  module,
-  signs,
-  selectedSign,
-  onOpenSign,
-  onClose,
-  onCloseSign,
-}) {
+function ModulePage({ module, signs, selectedSign, onOpenSign, onClose, onCloseSign }) {
   const [showQuiz, setShowQuiz] = useState(false);
 
   if (showQuiz) {
-    return (
-      <QuizPage
-        module={module}
-        onClose={() => setShowQuiz(false)}
-      />
-    );
+    return <QuizPage module={module} onClose={() => setShowQuiz(false)} />;
   }
 
   return (
-    <div className="learn-overlay">
-
-      <div className="learn-overlay-header">
-
-        <button
-          onClick={onClose}
-          className="back-button"
-        >
-          ← Back
+    <div className="ui-scope ui-overlay">
+      <div className="ln-module-wrap">
+        <button type="button" onClick={onClose} className="ui-back">
+          All modules
         </button>
 
-        <div>
-          <span>
-            Module {module.moduleNumber}
-          </span>
-
+        <header className="ln-module-head">
+          <span className="ln-pill">Module {module.moduleNumber}</span>
           <h1>{module.moduleName}</h1>
-        </div>
+          <p>
+            {signs.length} {signs.length === 1 ? "sign" : "signs"} to learn. Open each one, then test yourself.
+          </p>
+        </header>
 
-      </div>
+        <div className="ln-signs">
+          {signs.map((sign, index) => (
+            <button type="button" key={sign._id} className="ln-sign" onClick={() => onOpenSign(sign._id)}>
+              <span className="ln-sign-no">{index + 1}</span>
+              <strong>{sign.signName}</strong>
+            </button>
+          ))}
 
-      <div className="sign-grid">
-
-        {signs.map((sign, index) => (
-          <button
-            key={sign._id}
-            className="sign-card"
-            onClick={() => onOpenSign(sign._id)}
-          >
-            <span>Sign {index + 1}</span>
-
-            <strong>{sign.signName}</strong>
+          <button type="button" className="ln-quiz-card" onClick={() => setShowQuiz(true)}>
+            <strong>Take the quiz</strong>
+            <span>Ten questions to check what you have learned.</span>
           </button>
-        ))}
-
-        <button
-          className="quiz-card"
-          onClick={() => setShowQuiz(true)}
-        >
-          <strong>🎯 Take Quiz</strong>
-
-          <span>
-            Test your knowledge
-          </span>
-        </button>
-
+        </div>
       </div>
 
-      {selectedSign && (
-        <SignDetail
-          sign={selectedSign}
-          onClose={onCloseSign}
-        />
-      )}
-
+      {selectedSign && <SignDetail sign={selectedSign} onClose={onCloseSign} />}
     </div>
   );
 }

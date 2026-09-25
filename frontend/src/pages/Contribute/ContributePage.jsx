@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { getContributions } from "../../api/contribution.api";
 import useInfiniteScroll from "../../hooks/useInfiniteScroll";
@@ -7,6 +7,16 @@ import ContributionForm from "./ContributionForm";
 import ContributionDetail from "./ContributionDetail";
 
 import "../../styles/Contribute/Contribute.style.css";
+
+const GUIDELINES = [
+  "Upload only content related to Indian Sign Language.",
+  "Record in good lighting with your hands and movements clearly visible.",
+  "Keep the camera stable and the video between 3 and 8 seconds.",
+  "Avoid blurry, dark or extremely noisy videos.",
+  "The sign name, meaning and usage must match the sign you show.",
+  "Do not upload abusive, hateful, inappropriate or unrelated content.",
+  "Submit only content that you have the right to contribute.",
+];
 
 function ContributePage() {
   const [showForm, setShowForm] = useState(false);
@@ -22,9 +32,7 @@ function ContributePage() {
       setLoading(true);
       const data = await getContributions(pageNum, 6);
 
-      setContributions((prev) =>
-        isInitial ? data.contributions : [...prev, ...data.contributions]
-      );
+      setContributions((prev) => (isInitial ? data.contributions : [...prev, ...data.contributions]));
       setHasMore(data.hasMore);
     } catch (error) {
       console.error("Failed to fetch contributions:", error);
@@ -50,104 +58,86 @@ function ContributePage() {
   const handleResetAndReload = async () => {
     setShowForm(false);
     setPage(1);
+    setHasMore(true);
     await fetchContributions(1, true);
   };
 
-  // 1. Show Form as full-screen view
+  // 1. Full-screen form
   if (showForm) {
-    return (
-      <ContributionForm
-        onBack={() => setShowForm(false)}
-        onSubmitted={handleResetAndReload}
-      />
-    );
+    return <ContributionForm onBack={() => setShowForm(false)} onSubmitted={handleResetAndReload} />;
   }
 
-  // 2. Show Selected Contribution Detail as full-screen view (replaces the main screen)
+  // 2. Full-screen contribution detail
   if (selectedContribution) {
-    return (
-      <ContributionDetail
-        contributionId={selectedContribution}
-        onClose={() => setSelectedContribution(null)}
-      />
-    );
+    return <ContributionDetail contributionId={selectedContribution} onClose={() => setSelectedContribution(null)} />;
   }
 
-  // 3. Main Page
+  // 3. Main page
   return (
-    <div className="contribute-page">
-      <div className="contribute-intro">
-        <h1>Contribute to ISL</h1>
-        <p>
-          Help us expand the Indian Sign Language dictionary by contributing
-          useful and meaningful signs.
-        </p>
-      </div>
-
-      <div className="contribute-guidelines">
-        <h2>Before You Contribute</h2>
-        <ul>
-          <li>Upload only content related to Indian Sign Language.</li>
-          <li>Record the video in good lighting.</li>
-          <li>Make sure your hands and movements are clearly visible.</li>
-          <li>Keep the camera stable while recording.</li>
-          <li>Record a video between 3 and 8 seconds.</li>
-          <li>Avoid blurry, dark or extremely noisy videos.</li>
-          <li>The sign name must accurately describe the sign.</li>
-          <li>Meaning and usage must be related to the submitted sign.</li>
-          <li>Do not upload abusive, hateful, inappropriate or unrelated content.</li>
-          <li>Submit only content that you have the right to contribute.</li>
-        </ul>
-      </div>
-
-      <button
-        className="contribute-button"
-        onClick={() => setShowForm(true)}
-      >
-        Click here to contribute
-      </button>
-
-      {/* Container Box for User Applications */}
-      <div className="contributions-box">
-        <div className="contributions-box-header">
-          <h2>Your Contributions</h2>
-          <button
-            className="refresh-button"
-            onClick={handleResetAndReload}
-            disabled={loading}
-          >
-            {loading ? "Refreshing..." : "Refresh"}
-          </button>
-        </div>
-
-        <div className="contributions-scroll-container">
-          {contributions.length === 0 && !loading ? (
-            <p>You have not submitted any contributions yet.</p>
-          ) : (
-            <div className="contribution-grid">
-              {contributions.map((item) => (
-                <button
-                  key={item._id}
-                  className="contribution-card"
-                  onClick={() => setSelectedContribution(item._id)}
-                >
-                  <strong>{item.signName}</strong>
-                  <span>
-                    {new Date(item.createdAt).toLocaleString()}
-                  </span>
-                  <span className={`status ${item.status}`}>
-                    {item.status}
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Sentinel for infinite scroll */}
-          <div ref={sentinelRef} className="scroll-sentinel">
-            {loading && <p>Loading...</p>}
+    <div className="ui-scope ui-page ct-page">
+      <div className="ui-wrap">
+        <section className="ct-hero">
+          <div className="ct-hero-copy">
+            <h1>Know a sign that is missing? Add it.</h1>
+            <p>
+              Every sign you record helps someone else learn and communicate. A moderator checks each one before it
+              reaches the dictionary.
+            </p>
+            <button type="button" className="ui-btn ui-btn--primary ct-cta" onClick={() => setShowForm(true)}>
+              Contribute a sign
+            </button>
           </div>
-        </div>
+
+          <aside className="ct-guide">
+            <h2>Before you record</h2>
+            <ul>
+              {GUIDELINES.map((rule) => (
+                <li key={rule}>{rule}</li>
+              ))}
+            </ul>
+          </aside>
+        </section>
+
+        <section className="ct-box" aria-labelledby="ct-box-title">
+          <div className="ct-box-head">
+            <h2 id="ct-box-title">Your contributions</h2>
+            <button
+              type="button"
+              className="ui-btn ui-btn--sm"
+              onClick={handleResetAndReload}
+              disabled={loading}
+            >
+              {loading ? "Refreshing..." : "Refresh"}
+            </button>
+          </div>
+
+          <div className="ct-scroll">
+            {contributions.length === 0 && !loading ? (
+              <div className="ui-empty">
+                <p>You have not submitted anything yet. Your first contribution will show up here.</p>
+              </div>
+            ) : (
+              <div className="ct-grid">
+                {contributions.map((item) => (
+                  <button
+                    type="button"
+                    key={item._id}
+                    className="ct-card"
+                    onClick={() => setSelectedContribution(item._id)}
+                  >
+                    <strong>{item.signName}</strong>
+                    <span className="ct-card-date">{new Date(item.createdAt).toLocaleString()}</span>
+                    <span className={`ui-badge is-${item.status}`}>{item.status}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div ref={sentinelRef} className="ct-sentinel">
+              {loading && <div className="ui-spinner" role="status" aria-label="Loading" />}
+            </div>
+          </div>
+        </section>
       </div>
     </div>
   );
