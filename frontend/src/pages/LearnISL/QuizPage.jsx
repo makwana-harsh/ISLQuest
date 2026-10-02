@@ -1,7 +1,33 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { generateModuleQuiz, submitModuleQuiz } from "../../api/learnIsl.api";
-import Stars, { getRank } from "./Stars";
+import Stars, { getRank, getStarCount } from "./Stars";
+
+// Fixed confetti burst, generated once per mount — no images, pure CSS.
+function Confetti() {
+  const pieces = useMemo(
+    () =>
+      Array.from({ length: 26 }, (_, i) => ({
+        left: Math.round(Math.random() * 100),
+        delay: (Math.random() * 0.4).toFixed(2),
+        rotate: Math.round(Math.random() * 360),
+        tone: i % 4,
+      })),
+    []
+  );
+
+  return (
+    <div className="ln-confetti" aria-hidden="true">
+      {pieces.map((p, i) => (
+        <span
+          key={i}
+          className={`ln-confetti-piece tone-${p.tone}`}
+          style={{ left: `${p.left}%`, animationDelay: `${p.delay}s`, transform: `rotate(${p.rotate}deg)` }}
+        />
+      ))}
+    </div>
+  );
+}
 
 function QuizPage({ module, onClose }) {
   const [questions, setQuestions] = useState([]);
@@ -91,7 +117,7 @@ function QuizPage({ module, onClose }) {
       <div className="ui-scope ui-overlay ln-center">
         <div className="ln-stack">
           <div className="ui-spinner" role="status" aria-label="Loading" />
-          <p>Getting your questions ready...</p>
+          <p>Summoning the boss quiz...</p>
         </div>
       </div>
     );
@@ -111,10 +137,16 @@ function QuizPage({ module, onClose }) {
   }
 
   if (result) {
+    const stars = getStarCount(result.score);
+
     return (
       <div className="ui-scope ui-overlay ln-center">
+        {stars > 0 && <Confetti />}
+
         <div className="ln-result">
-          <h1>Quiz complete</h1>
+          <span className="ln-trophy">{stars === 3 ? "🏆" : stars === 2 ? "🥈" : stars === 1 ? "🥉" : "📘"}</span>
+
+          <h1>Quiz complete!</h1>
 
           <div className="ln-score" style={{ "--pct": Math.max(0, Math.min(100, Number(result.score) || 0)) }}>
             <div>
@@ -123,7 +155,7 @@ function QuizPage({ module, onClose }) {
             </div>
           </div>
 
-          <Stars score={result.score} size={34} />
+          <Stars score={result.score} size={34} pop />
           <p className="ln-rank">{getRank(result.score)}</p>
           <p className="ln-muted">Your best score in this module is {result.bestScore}/100.</p>
 
@@ -146,8 +178,20 @@ function QuizPage({ module, onClose }) {
           <button type="button" className="ui-back" onClick={onClose}>
             Exit quiz
           </button>
+
+          <div className="ln-dots" aria-hidden="true">
+            {questions.map((_, index) => (
+              <span
+                key={index}
+                className={`${index === currentQuestion ? "is-current" : ""} ${
+                  answers[index]?.selectedAnswer ? "is-answered" : ""
+                }`}
+              />
+            ))}
+          </div>
+
           <span className="ln-count">
-            Question {currentQuestion + 1} of {questions.length}
+            {currentQuestion + 1} / {questions.length}
           </span>
         </div>
 
@@ -171,8 +215,9 @@ function QuizPage({ module, onClose }) {
         )}
 
         <div className="ln-options">
-          {current.options.map((option) => {
+          {current.options.map((option, index) => {
             const selected = selectedAnswer === option.signName;
+            const letter = String.fromCharCode(65 + index);
 
             return (
               <button
@@ -182,6 +227,8 @@ function QuizPage({ module, onClose }) {
                 onClick={() => selectAnswer(option.signName)}
                 aria-pressed={selected}
               >
+                <span className="ln-option-letter">{letter}</span>
+
                 {option.videoUrl ? (
                   <video src={option.videoUrl} autoPlay loop muted playsInline preload="auto" />
                 ) : (

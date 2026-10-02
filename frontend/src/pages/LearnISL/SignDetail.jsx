@@ -18,6 +18,8 @@ function SignDetail({ sign, onClose }) {
       }}
     >
       <div className="ui-modal ln-sign-modal" role="dialog" aria-modal="true" aria-label={sign.signName}>
+        <span className="ln-collected-chip">✓ Collected</span>
+
         <button type="button" className="ui-btn ui-btn--sm ln-modal-close" onClick={onClose}>
           Close
         </button>

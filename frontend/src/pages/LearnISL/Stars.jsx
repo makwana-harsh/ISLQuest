@@ -8,21 +8,29 @@ export function getStarCount(score) {
 
 export function getRank(score) {
   const stars = getStarCount(score);
-  if (stars === 3) return "Mastery";
-  if (stars === 2) return "Proficient";
-  if (stars === 1) return "Good start";
-  return "Needs practice";
+  if (stars === 3) return "Gold — Mastery";
+  if (stars === 2) return "Silver — Proficient";
+  if (stars === 1) return "Bronze — Good start";
+  return "Keep practicing";
 }
 
 const STAR_PATH = "M12 2.8l2.9 6 6.5.9-4.7 4.6 1.1 6.5L12 17.7l-5.8 3.1 1.1-6.5L2.6 9.7l6.5-.9z";
 
-function Stars({ score, size = 22 }) {
+function Stars({ score, size = 22, pop = false }) {
   const filled = getStarCount(score);
 
   return (
     <span className="ln-stars" role="img" aria-label={`${filled} out of 3 stars`}>
       {[0, 1, 2].map((index) => (
-        <svg key={index} width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
+        <svg
+          key={index}
+          width={size}
+          height={size}
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+          className={pop && index < filled ? "ln-star-pop" : ""}
+          style={pop ? { animationDelay: `${0.25 + index * 0.14}s` } : undefined}
+        >
           <path
             d={STAR_PATH}
             fill={index < filled ? "#ffb62e" : "#ffffff"}

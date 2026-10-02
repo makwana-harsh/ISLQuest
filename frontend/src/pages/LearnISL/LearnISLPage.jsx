@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { getLearnModules, getModuleSigns, getLearnSign } from "../../api/learnIsl.api";
 
 import ModulePage from "./ModulePage";
-import Stars from "./Stars";
+import Stars, { getStarCount } from "./Stars";
 
 import "../../styles/LearnISL/LearnISL.style.css";
+
+const XP_PER_LEVEL = 300; // arbitrary pacing for the level bar
 
 function LearnISLPage() {
   const [modules, setModules] = useState([]);
@@ -66,18 +68,49 @@ function LearnISLPage() {
   const closeModule = () => {
     setSelectedModule(null);
     setSelectedSign(null);
-    // A quiz may have improved the score, so refresh the stars quietly
+    // A quiz may have improved the score, so refresh the map quietly
     loadModules(true);
   };
 
-  const tones = ["teal", "sun", "pink", "sky"];
+  // ---- game-y derived stats ----
+  const totalXp = useMemo(() => modules.reduce((sum, m) => sum + (Number(m.score) || 0), 0), [modules]);
+  const level = Math.floor(totalXp / XP_PER_LEVEL) + 1;
+  const xpIntoLevel = totalXp % XP_PER_LEVEL;
+  const xpPct = Math.round((xpIntoLevel / XP_PER_LEVEL) * 100);
+  const totalStars = useMemo(() => modules.reduce((sum, m) => sum + getStarCount(m.score), 0), [modules]);
+
+  // First module that hasn't been started yet — gets the "start here" pulse
+  const nextUpNumber = useMemo(() => {
+    const notStarted = modules.find((m) => (Number(m.score) || 0) === 0);
+    return notStarted ? notStarted.moduleNumber : null;
+  }, [modules]);
 
   return (
     <div className="ui-scope ui-page ln-page">
       <div className="ui-wrap">
         <header className="ln-head">
-          <h1>Learn ISL</h1>
-          <p>Work through one module at a time. Finish a quiz to earn up to three stars.</p>
+          <div>
+            <h1>Learn ISL</h1>
+            <p>Walk the path one module at a time. Clear the quiz at the end to earn stars.</p>
+          </div>
+
+          {!loading && modules.length > 0 && (
+            <div className="ln-hud">
+              <div className="ln-hud-badge">
+                <span>Lv</span>
+                <strong>{level}</strong>
+              </div>
+              <div className="ln-hud-xp">
+                <div className="ln-xp-bar" role="img" aria-label={`${xpIntoLevel} of ${XP_PER_LEVEL} XP into level ${level}`}>
+                  <span style={{ width: `${xpPct}%` }} />
+                </div>
+                <span className="ln-hud-caption">{totalXp} XP total</span>
+              </div>
+              <div className="ln-hud-stars" title={`${totalStars} stars earned`}>
+                ⭐ <strong>{totalStars}</strong>
+              </div>
+            </div>
+          )}
         </header>
 
         {error && (
@@ -97,30 +130,48 @@ function LearnISLPage() {
             <p>No modules are available yet. Please check back soon.</p>
           </div>
         ) : (
-          <div className="ln-grid">
-            {modules.map((module, index) => (
-              <button
-                type="button"
-                key={module.moduleNumber}
-                className={`ln-module tone-${tones[index % tones.length]}`}
-                onClick={() => openModule(module)}
-                disabled={openingModule !== null}
-              >
-                <span className="ln-module-no">Module {module.moduleNumber}</span>
-                <h2>{module.moduleName}</h2>
+          <div className="ln-path">
+            {modules.map((module, index) => {
+              const stars = getStarCount(module.score);
+              const done = stars === 3;
+              const started = (Number(module.score) || 0) > 0;
+              const isNext = module.moduleNumber === nextUpNumber;
+              const side = index % 2 === 0 ? "left" : "right";
 
-                <span className="ln-module-foot">
-                  <Stars score={module.score} />
-                  <span>
-                    {openingModule === module.moduleNumber
-                      ? "Opening..."
-                      : module.score > 0
-                      ? `Best ${module.score}/100`
-                      : "Not attempted"}
-                  </span>
-                </span>
-              </button>
-            ))}
+              return (
+                <div className={`ln-node-row side-${side}`} key={module.moduleNumber}>
+                  <button
+                    type="button"
+                    className={`ln-node ${done ? "is-done" : started ? "is-started" : "is-new"} ${isNext ? "is-next" : ""}`}
+                    onClick={() => openModule(module)}
+                    disabled={openingModule !== null}
+                  >
+                    {isNext && <span className="ln-flag">Start here</span>}
+                    {done && <span className="ln-crown">👑</span>}
+
+                    <span className="ln-node-no">{module.moduleNumber}</span>
+                    <span className="ln-node-ring" aria-hidden="true" />
+                  </button>
+
+                  <div className="ln-node-card">
+                    <h2>{module.moduleName}</h2>
+                    <Stars score={module.score} size={18} />
+                    <span className="ln-node-status">
+                      {openingModule === module.moduleNumber
+                        ? "Opening..."
+                        : started
+                        ? `Best ${module.score}/100`
+                        : "Not attempted"}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+
+            <div className="ln-path-end">
+              <span>🏁</span>
+              <p>{totalStars === modules.length * 3 ? "Path complete!" : "More modules ahead"}</p>
+            </div>
           </div>
         )}
       </div>
