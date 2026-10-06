@@ -22,7 +22,8 @@ const DictionarySchema = new mongoose.Schema(
 
     videoUrl: {
       type: String,
-      required: true,
+      required: false,
+      default: null
     },
 
     sourceType: {
