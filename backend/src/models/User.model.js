@@ -27,7 +27,6 @@ const UserSchema = new mongoose.Schema(
     mobileNo: {
       type: String,
       required: true,
-      unique: true,
       trim: true,
     },
 
@@ -55,7 +54,7 @@ const UserSchema = new mongoose.Schema(
       default: false,
     },
 
-    blockDuration: {
+    blockedUntil: {
       type: Date,
       default: null,
     },

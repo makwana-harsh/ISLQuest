@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import useDebounce from "../../hooks/useDebounce";
 import useInfiniteScroll from "../../hooks/useInfiniteScroll";
 
-import {getDictionarySigns} from "../../api/dictionary.api";
+import { getDictionarySigns } from "../../api/dictionary.api";
 
 import DictionaryCard from "./DictionaryCard";
 import DictionaryDetail from "./DictionaryDetail";
@@ -18,12 +18,17 @@ function DictionaryPage() {
   const [page, setPage] = useState(1);
 
   const [hasMore, setHasMore] = useState(true);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const [selectedSignId, setSelectedSignId] = useState(null);
 
+  // Ignore responses that belong to an older search
+  const requestIdRef = useRef(0);
+
   const fetchSigns = useCallback(
     async (pageNumber, replace = false) => {
+      const requestId = ++requestIdRef.current;
+
       try {
         setLoading(true);
 
@@ -33,21 +38,17 @@ function DictionaryPage() {
           search: debouncedSearch,
         });
 
-        setSigns((previousSigns) =>
-          replace
-            ? data.signs
-            : [...previousSigns, ...data.signs]
-        );
+        if (requestId !== requestIdRef.current) return;
 
+        setSigns((previousSigns) => (replace ? data.signs : [...previousSigns, ...data.signs]));
         setPage(data.page);
         setHasMore(data.hasMore);
       } catch (error) {
-        console.error(
-          error.response?.data?.message ||
-            "Failed to load dictionary"
-        );
+        if (requestId !== requestIdRef.current) return;
+        console.error(error.response?.data?.message || "Failed to load dictionary");
+        setHasMore(false);
       } finally {
-        setLoading(false);
+        if (requestId === requestIdRef.current) setLoading(false);
       }
     },
     [debouncedSearch]
@@ -59,65 +60,77 @@ function DictionaryPage() {
     setHasMore(true);
 
     fetchSigns(1, true);
-  }, [debouncedSearch, fetchSigns]);
+  }, [fetchSigns]);
 
   const loadNextPage = useCallback(() => {
     if (loading || !hasMore) return;
-
     fetchSigns(page + 1);
   }, [loading, hasMore, page, fetchSigns]);
 
-  const sentinelRef = useInfiniteScroll(
-    loadNextPage,
-    hasMore,
-    loading
-  );
+  const sentinelRef = useInfiniteScroll(loadNextPage, hasMore, loading);
+
+  const closeDetail = useCallback(() => setSelectedSignId(null), []);
+
+  const searching = debouncedSearch.trim().length > 0;
 
   return (
-    <section className="dictionary-page">
-      <h1>Dictionary</h1>
+    <section className="ui-scope ui-page dc-page">
+      <div className="ui-wrap">
+        <header className="dc-head">
+          <h1>Dictionary</h1>
+          <p>Search for a sign, then open it to watch the video and read how it is used.</p>
+        </header>
 
-      <input
-        type="text"
-        className="dictionary-search"
-        placeholder="Search sign..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
+        <div className="dc-search">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="7" />
+            <path d="M20 20l-3.5-3.5" />
+          </svg>
 
-      <div className="dictionary-list">
-        {signs.map((sign) => (
-          <DictionaryCard
-            key={sign._id}
-            sign={sign}
-            onClick={setSelectedSignId}
+          <input
+            type="search"
+            className="dc-search-input"
+            placeholder="Search for a sign, like Water or Thank you"
+            aria-label="Search signs"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
           />
-        ))}
+        </div>
+
+        <div className="dc-list">
+          {signs.map((sign) => (
+            <DictionaryCard key={sign._id} sign={sign} onClick={setSelectedSignId} />
+          ))}
+        </div>
+
+        {loading && signs.length === 0 && (
+          <div className="dc-list" aria-busy="true">
+            {Array.from({ length: 8 }, (_, index) => (
+              <div key={index} className="ui-skel dc-skel-card" />
+            ))}
+          </div>
+        )}
+
+        {loading && signs.length > 0 && (
+          <div className="dc-more">
+            <div className="ui-spinner" role="status" aria-label="Loading more signs" />
+          </div>
+        )}
+
+        {!loading && signs.length === 0 && (
+          <div className="ui-empty dc-empty">
+            <p>
+              {searching
+                ? `No signs match "${debouncedSearch.trim()}". Check the spelling or try a shorter word.`
+                : "The dictionary is empty for now."}
+            </p>
+          </div>
+        )}
+
+        <div ref={sentinelRef} className="dc-sentinel" />
       </div>
 
-      {loading && (
-        <p className="dictionary-loading">
-          Loading...
-        </p>
-      )}
-
-      {!loading && signs.length === 0 && (
-        <p className="dictionary-empty">
-          No signs found.
-        </p>
-      )}
-
-      <div
-        ref={sentinelRef}
-        className="dictionary-sentinel"
-      />
-
-      {selectedSignId && (
-        <DictionaryDetail
-          signId={selectedSignId}
-          onClose={() => setSelectedSignId(null)}
-        />
-      )}
+      {selectedSignId && <DictionaryDetail signId={selectedSignId} onClose={closeDetail} />}
     </section>
   );
 }

@@ -1,37 +1,38 @@
-import React, { useEffect, useRef } from 'react';
-import { speakText } from '../translator.utils';
+import { useEffect, useRef } from "react";
+
+import { speakText } from "../translator.utils";
 
 export function VoiceButton({ currentSign, autoSpeak = false }) {
   const lastSpokenRef = useRef(null);
 
+  const spoken = currentSign ? String(currentSign).replace(/_/g, " ") : "";
+
   useEffect(() => {
-    if (autoSpeak && currentSign && currentSign !== lastSpokenRef.current) {
-      speakText(currentSign);
+    // Forget the last word when the sign clears so it can be spoken again
+    if (!currentSign) {
+      lastSpokenRef.current = null;
+      return;
+    }
+
+    if (autoSpeak && currentSign !== lastSpokenRef.current) {
+      speakText(spoken);
       lastSpokenRef.current = currentSign;
     }
-  }, [currentSign, autoSpeak]);
+  }, [currentSign, autoSpeak, spoken]);
 
   return (
     <button
-      onClick={() => speakText(currentSign)}
+      type="button"
+      className="ui-btn ui-btn--sm tr-voice"
+      onClick={() => speakText(spoken)}
       disabled={!currentSign}
-      className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-40 transition-colors"
-      title="Speak Detected Sign"
+      aria-label="Speak the detected sign"
     >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        className="w-5 h-5"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"
-        />
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M11 5L6 9H3v6h3l5 4V5z" />
+        <path d="M15.5 8.5a5 5 0 010 7M18.5 5.5a9 9 0 010 13" />
       </svg>
+      Speak
     </button>
   );
 }

@@ -1,43 +1,47 @@
-import React from 'react';
-import { VoiceButton } from './VoiceButton';
+import { VoiceButton } from "./voiceButton";
+
+const STATUS_LABELS = {
+  idle: "Waiting",
+  buffering: "Collecting frames",
+  predicting: "Recognising",
+  detected: "Sign found",
+};
 
 export function PredictionDisplay({ predictionState, autoSpeak = false }) {
   const { status, sign, confidence, progress, total } = predictionState;
 
+  const label = sign ? String(sign).replace(/_/g, " ") : "";
+  const percent = Math.round((Number(confidence) || 0) * 100);
+  const bufferPct = total > 0 ? Math.min(100, (progress / total) * 100) : 0;
+
   return (
-    <div className="p-4 bg-slate-900 border border-slate-800 rounded-xl w-[640px] flex flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <span className="text-xs uppercase font-bold tracking-wider text-slate-400">
-          Detection Status
-        </span>
-        <span className="text-xs px-2 py-0.5 rounded-full font-mono bg-slate-800 text-slate-300">
-          {status}
-        </span>
+    <section className="tr-result" aria-live="polite">
+      <div className="tr-result-top">
+        <h2>Detected sign</h2>
+        <span className={`tr-status is-${status}`}>{STATUS_LABELS[status] || status}</span>
       </div>
 
-      <div className="flex items-center justify-between">
-        <div className="flex items-baseline gap-3">
-          <h2 className="text-3xl font-extrabold text-white uppercase">
-            {sign ? sign.replace('_', ' ') : '—'}
-          </h2>
-          {confidence > 0 && (
-            <span className="text-sm font-semibold text-emerald-400">
-              {Math.round(confidence * 100)}% Match
-            </span>
-          )}
-        </div>
-        {/* Integrated Voice Button */}
-        <VoiceButton currentSign={sign} autoSpeak={autoSpeak} />
-      </div>
+      <p className={`tr-sign ${label ? "" : "is-empty"}`}>{label || "Nothing yet"}</p>
 
-      {status === 'buffering' && (
-        <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden mt-2">
-          <div
-            className="bg-indigo-500 h-full transition-all duration-75"
-            style={{ width: `${(progress / total) * 100}%` }}
-          />
+      {percent > 0 && (
+        <div className="tr-confidence">
+          <div className="tr-meter" role="img" aria-label={`${percent}% match`}>
+            <span style={{ width: `${percent}%` }} />
+          </div>
+          <span>{percent}% match</span>
         </div>
       )}
-    </div>
+
+      {status === "buffering" && (
+        <div className="tr-buffer">
+          <span>Keep signing, gathering movement</span>
+          <div className="tr-meter tr-meter--buffer" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(bufferPct)}>
+            <span style={{ width: `${bufferPct}%` }} />
+          </div>
+        </div>
+      )}
+
+      <VoiceButton currentSign={sign} autoSpeak={autoSpeak} />
+    </section>
   );
 }

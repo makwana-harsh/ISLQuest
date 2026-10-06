@@ -42,7 +42,7 @@ export const getDictionarySignById = async (id) => {
       "_id signName meaning usage sourceType sourceName videoUrl"
     )
     .lean();
-
+  // console.log(sign);
   if (!sign) {
     throw new Error("Dictionary sign not found");
   }
